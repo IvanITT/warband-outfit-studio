@@ -202,6 +202,8 @@ The cache is derived data and safe to delete.
 |---|---|---|
 | GET | `/api/health` | liveness, version, uptime |
 | GET | `/api/status` | installation, profiles, modules, project root |
+| GET | `/api/diagnostics` | health checks, paths, recovery guidance, memory |
+| GET | `/api/logs` | bounded server log tail |
 | GET | `/api/profiles` | profile list + active |
 | POST | `/api/profiles` | add `{ path, label }` (validates) |
 | POST | `/api/profiles/:id/activate` | switch active installation |
@@ -276,8 +278,9 @@ Errors use a stable envelope:
    escape their root; static serving rejects traversal.
 6. **Local binding**: the server binds `127.0.0.1` and is not reachable from the
    network.
-7. **Deployment** (Phase 8) is still not implemented: it will require a dry-run
-   report, explicit confirmation and a hash-recorded backup of the target.
+7. **Deployment**: builds produce workspace overlays or full module copies; the
+   live installation is never written. Applying a build is a deliberate manual
+   action (ADR-037).
 
 ## 10. Technology decisions (summary)
 
@@ -290,7 +293,7 @@ Errors use a stable envelope:
 | Types | JSDoc + `// @ts-check` | editor safety without a build toolchain |
 | Tests | `node:test` | built in, zero dependencies |
 | Storage | JSON files + filesystem | inspectable, diffable, no database |
-| Packaging | `.cmd` launcher now; Node SEA later | simple; SEA removes the Node prerequisite |
+| Packaging | `.cmd` launcher + portable folder; optional bundled `node.exe` | no npm install; runtime can be included |
 
 Full rationale and trade-offs: [DECISIONS.md](../development/DECISIONS.md).
 

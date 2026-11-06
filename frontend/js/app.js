@@ -8,6 +8,7 @@ import { createBackupsView } from './backups.js';
 import { createWorkspacesView } from './workspaces.js';
 import { createViewer } from './viewer.js';
 import { createBuildView } from './build.js';
+import { createDiagnosticsView } from './diagnostics.js';
 import { createInstallations } from './installations.js';
 
 const state = {
@@ -40,6 +41,7 @@ const dom = {
     resources: document.getElementById('view-resources'),
     viewer: document.getElementById('view-viewer'),
     build: document.getElementById('view-build'),
+    diagnostics: document.getElementById('view-diagnostics'),
     workspaces: document.getElementById('view-workspaces'),
     backups: document.getElementById('view-backups'),
   },
@@ -74,6 +76,13 @@ const dom = {
   buildRefresh: document.getElementById('build-refresh'),
   buildList: document.getElementById('build-list'),
   buildResult: document.getElementById('build-result'),
+  // diagnostics
+  diagnosticsHealth: document.getElementById('diagnostics-health'),
+  diagnosticsRefresh: document.getElementById('diagnostics-refresh'),
+  diagnosticsChecks: document.getElementById('diagnostics-checks'),
+  diagnosticsInfo: document.getElementById('diagnostics-info'),
+  diagnosticsRecovery: document.getElementById('diagnostics-recovery'),
+  diagnosticsLog: document.getElementById('diagnostics-log'),
   // viewer
   viewerCount: document.getElementById('viewer-count'),
   viewerSearch: document.getElementById('viewer-search'),
@@ -245,6 +254,19 @@ const buildView = createBuildView({
     buildRefresh: dom.buildRefresh,
     buildList: dom.buildList,
     buildResult: dom.buildResult,
+  },
+  setStatus,
+});
+
+const diagnostics = createDiagnosticsView({
+  api,
+  dom: {
+    health: dom.diagnosticsHealth,
+    refresh: dom.diagnosticsRefresh,
+    checks: dom.diagnosticsChecks,
+    info: dom.diagnosticsInfo,
+    recovery: dom.diagnosticsRecovery,
+    log: dom.diagnosticsLog,
   },
   setStatus,
 });
@@ -457,6 +479,7 @@ async function loadCurrentView() {
   else if (state.view === 'resources') await resources.load(state.moduleId);
   else if (state.view === 'viewer') await viewer.loadList(state.moduleId);
   else if (state.view === 'build') await buildView.load();
+  else if (state.view === 'diagnostics') await diagnostics.load();
   else if (state.view === 'workspaces') await workspaces.load();
   else await backups.load();
   updateHint();
@@ -465,7 +488,10 @@ async function loadCurrentView() {
 async function switchView(view) {
   const previous = state.view;
   state.view = view;
-  for (const tab of dom.tabs) tab.classList.toggle('is-active', tab.dataset.view === view);
+  for (const tab of dom.tabs) {
+    tab.classList.toggle('is-active', tab.dataset.view === view);
+    tab.setAttribute('aria-current', tab.dataset.view === view ? 'page' : 'false');
+  }
   for (const [name, node] of Object.entries(dom.views)) node.hidden = name !== view;
   if (previous === 'viewer' && view !== 'viewer') viewer.setActive(false);
   if (view === 'outfits') {
@@ -477,6 +503,8 @@ async function switchView(view) {
     await viewer.loadList(state.moduleId);
   } else if (view === 'build') {
     await buildView.load();
+  } else if (view === 'diagnostics') {
+    await diagnostics.load();
   } else if (view === 'workspaces') {
     await workspaces.load();
   } else {
@@ -552,6 +580,13 @@ function wireShell() {
   });
 
   dom.manageProfiles.addEventListener('click', () => installations.open());
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    event.preventDefault();
+    (state.view === 'viewer' ? dom.viewerSearch : dom.search)?.focus();
+  });
 }
 
 function renderFatal(error) {
@@ -572,6 +607,7 @@ async function init() {
   outfits.init();
   resources.init();
   buildView.init();
+  diagnostics.init();
   backups.init();
   workspaces.init();
   viewer.init();
@@ -592,14 +628,21 @@ async function init() {
   updateHint();
 
   if (!state.status.ok) {
-    setStatus('No se detectó una instalación de Warband. Usa ⚙ para añadir una.');
+    setStatus('Primera ejecución: registra la instalación de Warband para comenzar.');
     dom.detail.replaceChildren(
       el('div', { class: 'empty-state' }, [
-        el('div', { class: 'empty-icon', text: '⚠' }),
-        el('h2', { text: 'No se encontró Mount & Blade: Warband' }),
-        el('p', { text: 'El motor no localizó mb_warband.exe y Modules. Añade una instalación con ⚙.' }),
+        el('div', { class: 'empty-icon', text: '⚙' }),
+        el('h2', { text: 'Configura Mount & Blade: Warband' }),
+        el('p', { text: 'El motor no localizó mb_warband.exe y Modules. Se abrirá el asistente de instalación.' }),
+        el('button', {
+          class: 'primary',
+          type: 'button',
+          text: 'Abrir asistente',
+          onclick: () => installations.open(),
+        }),
       ]),
     );
+    installations.open();
     return;
   }
 

@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 9 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 10**
+> Current phase: **Phase 10 — COMPLETE**
+> Waiting for: **final project review**
 
 ---
 
@@ -164,7 +164,7 @@ Detailed documents:
 | Tests | `node:test` + `node:assert` | built in, deterministic, no dependencies |
 | Storage | JSON files + filesystem | inspectable, diffable, no database |
 | Cache | per-file JSON index in `cache/` | 147 MB / 219 BRF parsed in ~0.5 s, warm ~0.2 s |
-| Packaging | `.cmd` launcher now; Node SEA in Phase 10 | removes the Node prerequisite eventually |
+| Packaging | `.cmd` launcher + portable folder; optional bundled `node.exe` | no npm install; runtime can ship with the app |
 | VCS | Git, milestone tags | `phase-0-foundation`, … |
 
 Constraints: Windows target, offline operation, no runtime npm dependencies, loopback-only server.
@@ -354,18 +354,28 @@ Completed:
 
 **Exit met:** build outputs retain their project snapshot and can be rolled back; diffs identify changed item/material/mesh/config files; retention removes old builds/backups with typed confirmation; missing resources are injected into `module.ini`; sources stay read-only.
 
-### Phase 10 — Build, Launch & Production Polish
+### Phase 10 — Build, Launch & Production Polish — **COMPLETE (2026-11-06)**
 
-- Launcher/packaging, first-run setup, settings, logs, recovery workflows, UI polish, performance, accessibility.
-- **Exit:** a packaged application with user and developer documentation, release checklist.
+Completed:
+
+- Portable release builder with optional bundled Node runtime and Windows launcher.
+- First-run installation wizard opens automatically when no installation is registered.
+- **Sistema** diagnostics view: health checks, environment, recovery guidance and server log tail.
+- Server diagnostics logging (`cache/logs/server.log`, 1 MB rotation) and `/api/diagnostics` / `/api/logs`.
+- Accessibility/polish: live status, `aria-current` navigation, keyboard `/` search focus, focus-visible outlines, reduced-motion support.
+- User guide and release guide.
+- 115 automated tests.
+
+**Exit met:** `npm run release` creates a portable folder; release test imports the copied server and reaches `/api/health`; diagnostics checks installation, modules, Node and writable roots; no game writes.
 
 ---
 
 ## 9. Current Phase
 
-**Phase 9 is COMPLETE.** All Phase 9 deliverables are implemented, tested and documented.
+**Phase 10 is COMPLETE.** All roadmap phases are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 10.
+**The project is feature-complete for the agreed roadmap.** No later phase has
+been authorized; remaining work is post-1.0 feedback and specialized studios.
 
 ### Roadmap reconciliation (accepted)
 
@@ -645,27 +655,52 @@ the game is a deliberate manual copy, not an automated write (ADR-037).
 
 ---
 
-## 11. Pending Work
+### Phase 10 (2026-11-06)
 
-### Phase 10 (proposed, not authorized)
+**Packaging, setup and production polish**
 
-1. **Packaging** — Node SEA or equivalent launcher, no developer toolchain.
-2. **First-run setup** — guided installation detection, settings and logs.
-3. **Production polish** — accessibility, performance, error recovery UX.
-4. **Deployment workflow** — explicit, manual staging/export handoff if requested.
-5. **Tests/docs** — packaged build smoke tests and user guide.
+- `tools/build-release.js` / `npm run release`: portable folder with optional
+  bundled Node runtime, Windows launcher, docs and empty writable directories.
+- First-run wizard opens automatically when no installation is registered.
+- **Sistema** view: Node/installation/modules/writable-root checks, environment
+  data, recovery guidance and server log tail.
+- Server logging at `cache/logs/server.log` with 1 MB rotation;
+  `/api/diagnostics` and `/api/logs`.
+- Accessibility: live status region, `aria-current` nav, `/` search shortcut,
+  focus-visible outlines, reduced-motion support.
+- User guide and release guide.
+- 115 automated tests.
 
-### Explicitly out of Phase 10
+**Verification**
 
-Live game process patching, animation/troop/scene editors, cloud services.
-
-### Backlog after Phase 10
-
-- Post-1.0 specialized studios and animation work.
+- `integration/release` builds a `--no-runtime` release, validates its
+  structure and starts the copied server to reach `/api/health`.
+- Diagnostics reports all checks; logs endpoint returns bounded lines.
+- Release builder with a bundled runtime was exercised manually (Node runtime
+  copied).
+- No game files were modified.
 
 ---
 
-## 12. Known Issues (after Phase 9)
+## 11. Pending Work
+
+**None for the agreed 0–10 roadmap.**
+
+### Post-1.0 backlog
+
+- Specialized studios (weapons, troops, scenes, animations).
+- Optional module deployment workflow.
+- Semantic mesh/texture diffing.
+- Additional module-format writers.
+
+### Explicitly out of scope
+
+Live game process patching, automatic Steam/GOG deployment, cloud services,
+animation/troop/scene editors.
+
+---
+
+## 12. Known Issues (after Phase 10)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
@@ -706,6 +741,11 @@ Live game process patching, animation/troop/scene editors, cloud services.
 | 35 | Build diff is byte/hash based; no semantic mesh/texture diff viewer | Low | Future diff UI |
 | 36 | Backup pruning has no retention preview and leaves empty backup folders | Low | Phase 10 polish |
 | 37 | `module.ini` integration appends resources; it does not remove or reorder existing entries | Low | Future integration pass |
+| 38 | Release packaging bundles `node.exe` rather than a single SEA binary | Medium | Acceptable portable equivalent |
+| 39 | First-run detection needs a known path or manual path input | Low | First-run wizard covers it |
+| 40 | Server log rotation uses one `.1` archive; no UI deletion | Low | Diagnostics view shows tail |
+| 41 | No live game deployment or automated installer | High | Intentional safety invariant |
+| 42 | Build diff remains byte/hash based | Low | Post-1.0 semantic diff |
 
 ---
 
@@ -746,10 +786,13 @@ Live game process patching, animation/troop/scene editors, cloud services.
 | Backup pruning | Per-project/per-file keep-N; empty directories remain | Phase 10 cleanup |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
-| Backups | No pruning/retention policy (ADR-020) | Phase 9 |
-| UI confirmations | `window.prompt` for destructive actions | Replace with an in-app dialog in Phase 10 |
+| Backups | Keep-N pruning implemented; no preview | Post-1.0 polish |
+| UI confirmations | `window.prompt` for destructive actions | In-app dialog post-1.0 |
 | Docs | `PROGRESS.md` and `PROJECT_PLAN.md` overlap | PROJECT_PLAN canonical; PROGRESS historical |
-| Packaging | Requires Node installed | Phase 10 (Node SEA) |
+| Packaging | Portable folder with optional bundled `node.exe`; no single SEA binary | Evaluate SEA post-1.0 |
+| First run | Manual path if known-path detection misses | Improve install discovery |
+| Diagnostics | Log tail only; no export/viewer | Post-1.0 |
+| Deployment | Workspace handoff only | Separate installer phase if requested |
 
 ---
 
@@ -800,6 +843,9 @@ Live game process patching, animation/troop/scene editors, cloud services.
 | ADR-041 | Retention is keep-N with typed confirmation | Accepted (Phase 9) |
 | ADR-042 | Diff compares source bytes and SHA-256 | Accepted (Phase 9) |
 | ADR-043 | Builds append missing `load_resource` entries | Accepted (Phase 9) |
+| ADR-044 | Portable release with optional bundled Node runtime | Accepted (Phase 10) |
+| ADR-045 | Diagnostics logs live under `cache/logs` with 1 MB rotation | Accepted (Phase 10) |
+| ADR-046 | First run opens the installation wizard automatically | Accepted (Phase 10) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -857,12 +903,16 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-44 | Source-vs-build byte hashes provide a useful change report without parsing binaries | diff test | **VERIFIED** | `diffBuild` |
 | F-45 | Native `module.ini` already lists most CommonRes packs; unlisted packs need appended `load_resource` entries | `core_ui_meshes` build test | **VERIFIED** | module.ini integration |
 | F-46 | Keep-N pruning is safe when confirmation is required and newest entries are sorted first | backup/build prune tests | **VERIFIED** | retention |
+| F-47 | Zero-dependency app can be released as a portable folder with optional bundled `node.exe` | release test | **VERIFIED** | release builder |
+| F-48 | Release server entrypoints and frontend work relative to the release root | release smoke test | **VERIFIED** | packaging |
+| F-49 | Diagnostics can verify Node version, installation, modules and writable roots without game writes | diagnostics API test | **VERIFIED** | Sistema view |
+| F-50 | First-run wizard removes the need for manual config editing | app flow | **VERIFIED** | setup |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **114 / 114 passing** (~7.7 s), zero dependencies.
+**Command:** `npm test` - **115 / 115 passing** (~6.1 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -891,6 +941,7 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `integration/outfits` | 1 | item meshes, rigid pose, outfit save/load/delete/validation |
 | `integration/items` | 1 | editable record, override validation, new item export, source hash |
 | `integration/build` | 3 | overlay grouping, module.ini injection, rollback/prune/diff, invalid gate |
+| `integration/release` | 1 | portable release structure and copied-server `/api/health` |
 | `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
 | `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, outfits, CSP, static, 404 |
 
@@ -901,6 +952,16 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 10 completed
+
+- **Release**: portable folder builder with optional bundled Node runtime and Windows launcher.
+- **Setup**: automatic first-run installation wizard.
+- **Diagnostics**: Sistema view, health checks, recovery guidance, server log tail.
+- **Polish**: live status, aria-current nav, `/` search shortcut, focus-visible, reduced motion.
+- **Docs**: user guide + release guide.
+- **Tests**: 115 passing (release smoke + diagnostics).
+- Milestone tag: `phase-10-production`.
 
 ### 2026-11-06 - Phase 9 completed
 
@@ -1026,27 +1087,10 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 10 — Build, Launch & Production Polish** (proposed; requires explicit approval).
+**No further phase is authorized.** The Phase 0–10 roadmap is complete.
 
-### Proposed scope
+Post-1.0 candidates are listed in §11 (specialized studios, optional deployment
+workflow, semantic diffing and additional format writers). Any new work requires
+an explicit scope and approval.
 
-| Work item | Deliverable | Exit criterion |
-|---|---|---|
-| Packaging | Node SEA or equivalent launcher | runs without a developer toolchain |
-| First run | guided installation detection and settings | setup completes cleanly |
-| Diagnostics | log viewer, health checks, recovery guidance | actionable errors |
-| UI polish | accessibility, keyboard flow, confirmations | production-quality shell |
-| Deployment handoff | explicit staging/export workflow if requested | manual, reversible |
-| Tests/docs | packaged smoke tests and user guide | green and documented |
-
-### Explicitly out of Phase 10
-
-Live process patching, animation/troop/scene editors, cloud services.
-
-### Decisions requested with this approval
-
-1. **Packaging**: Node SEA (proposed) vs keep Node prerequisite.
-2. **First-run**: guided wizard (proposed) vs configuration file only.
-3. **Deployment**: finish as a workspace handoff (proposed) vs add a live installer.
-
-**Waiting for explicit user approval.**
+**Waiting for final project review.**

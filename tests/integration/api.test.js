@@ -143,6 +143,15 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   assert.equal(created.ok, true);
   assert.equal(created.project.id, 'api-test-project');
 
+  const diagnosticsResponse = await fetch(`${base}/api/diagnostics`);
+  const diagnostics = await diagnosticsResponse.json();
+  assert.equal(diagnostics.ok, true);
+  assert.ok(diagnostics.checks.length >= 4);
+  const logsResponse = await fetch(`${base}/api/logs?lines=20`);
+  const logs = await logsResponse.json();
+  assert.equal(logs.ok, true);
+  assert.ok(Array.isArray(logs.lines));
+
   const skinsResponse = await fetch(`${base}/api/skins?module=Native`);
   const skins = await skinsResponse.json();
   assert.equal(skins.ok, true);

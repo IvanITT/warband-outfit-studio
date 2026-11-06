@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.10.0',
-        phase: 9,
+        version: '0.11.0',
+        phase: 10,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -28,6 +28,14 @@ export function createApi(engine) {
 
     if (method === 'GET' && urlPath === '/api/status') {
       return { ok: true, ...engine.getStatus() };
+    }
+
+    if (method === 'GET' && urlPath === '/api/diagnostics') {
+      return { ok: true, ...(await engine.getDiagnostics()) };
+    }
+
+    if (method === 'GET' && urlPath === '/api/logs') {
+      return { ok: true, ...(await engine.getLogTail(query.get('lines') ?? 200)) };
     }
 
     /* ---- installation profiles ---- */

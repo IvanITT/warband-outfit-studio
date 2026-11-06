@@ -10,8 +10,9 @@
 import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { appendFile, stat, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { readJson } from '../../engine/util/fsx.js';
+import { ensureDir, readJson } from '../../engine/util/fsx.js';
 import { createEngine } from '../../engine/index.js';
 import { createApi } from '../api/routes.js';
 import { serveStatic } from './static.js';
@@ -128,6 +129,21 @@ export async function startServer(options = {}) {
     installationPath: options.installationPath ?? process.env.WARBAND_DIR ?? config.installationPath,
     cache: options.cache ?? config?.cache?.enabled !== false,
   });
+  const logDir = path.join(projectRoot, 'cache', 'logs');
+  const logFile = path.join(logDir, 'server.log');
+  const logLine = async (level, message) => {
+    try {
+      await ensureDir(logDir);
+      const line = `${new Date().toISOString()} [${level}] ${message}\n`;
+      const current = await stat(logFile).catch(() => null);
+      if (current && current.size > 1024 * 1024) {
+        await rename(logFile, `${logFile}.1`);
+      }
+      await appendFile(logFile, line, 'utf8');
+    } catch {
+      /* diagnostics logging must never break the server */
+    }
+  };
   const api = createApi(engine);
 
   const server = http.createServer(async (req, res) => {
@@ -144,6 +160,7 @@ export async function startServer(options = {}) {
       try {
         await serveStatic(res, FRONTEND_DIR, url.pathname);
       } catch (error) {
+        await logLine('ERROR', `static ${url.pathname}: ${error instanceof Error ? error.message : String(error)}`);
         sendJson(res, 500, { ok: false, error: { code: 'STATIC_ERROR', message: String(error) } });
       }
       return;
@@ -169,6 +186,7 @@ export async function startServer(options = {}) {
       const status = statusFor(code);
       if (status >= 500) {
         console.error(`[api] ${req.method} ${url.pathname} failed:`, error);
+        await logLine('ERROR', `${req.method} ${url.pathname} [${code}]: ${error instanceof Error ? error.message : String(error)}`);
       }
       sendJson(res, status, {
         ok: false,
@@ -213,6 +231,7 @@ export async function startServer(options = {}) {
   }
 
   const url = `http://${host}:${port}/`;
+  await logLine('INFO', `started ${url} projectRoot=${projectRoot} installation=${engine.installation?.rootPath ?? 'none'}`);
   return { server, engine, url, port, host };
 }
 
@@ -220,7 +239,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const started = await startServer();
   console.log('');
-  console.log('  WARBand Outfit Studio — Phase 9');
+  console.log('  WARBand Outfit Studio — Phase 10');
   console.log(`  ${started.url}`);
   if (!started.engine.installation) {
     console.log('  WARNING: no Warband installation detected. See /api/status for candidates.');

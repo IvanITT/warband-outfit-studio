@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.10.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.11.0" />
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 9</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 10</p>
         </div>
       </div>
 
@@ -43,6 +43,7 @@
       <button class="viewtab" data-view="viewer" type="button">Visor</button>
       <button class="viewtab" data-view="build" type="button">Build</button>
       <button class="viewtab" data-view="workspaces" type="button">Workspaces</button>
+      <button class="viewtab" data-view="diagnostics" type="button">Sistema</button>
       <button class="viewtab" data-view="backups" type="button">Copias</button>
       <span class="viewnav-spacer"></span>
       <span id="view-hint" class="viewnav-hint"></span>
@@ -372,6 +373,36 @@
       </section>
     </main>
 
+    <main id="view-diagnostics" class="view diagnostics-view" hidden>
+      <section class="panel diagnostics-panel">
+        <div class="panel-head">
+          <h2>Diagnóstico del sistema</h2>
+          <div class="panel-actions">
+            <span id="diagnostics-health" class="pill">—</span>
+            <button id="diagnostics-refresh" class="ghost small" type="button">Actualizar</button>
+          </div>
+        </div>
+        <div class="diagnostics-grid">
+          <div>
+            <h3 class="section-title">Comprobaciones</h3>
+            <div id="diagnostics-checks" class="diagnostics-checks"></div>
+          </div>
+          <div>
+            <h3 class="section-title">Entorno</h3>
+            <div id="diagnostics-info" class="diagnostics-info"></div>
+          </div>
+          <div>
+            <h3 class="section-title">Recuperación</h3>
+            <div id="diagnostics-recovery" class="diagnostics-recovery"></div>
+          </div>
+        </div>
+        <div class="diagnostics-log-wrap">
+          <h3 class="section-title">Log del servidor</h3>
+          <pre id="diagnostics-log" class="diagnostics-log">Cargando…</pre>
+        </div>
+      </section>
+    </main>
+
     <main id="view-backups" class="view" hidden>      <section class="panel backups-panel">
         <div class="panel-head">
           <h2>Copias de seguridad</h2>
@@ -386,9 +417,9 @@
     </main>
 
     <footer class="statusbar">
-      <span id="status-text">Iniciando…</span>
+      <span id="status-text" role="status" aria-live="polite">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 9 · Hardening</span>
+      <span class="status-meta">Fase 10 · Producción</span>
     </footer>
   </div>
 
@@ -415,6 +446,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.10.0"></script>
+  <script type="module" src="/js/app.js?v=0.11.0"></script>
 </body>
 </html>

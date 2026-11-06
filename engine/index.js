@@ -29,7 +29,7 @@ import { parseDds, parseDdsFile } from './textures/dds.js';
 import { WorkspaceStore } from './resources/workspace.js';
 import { resolveItemChain, validateItems } from './validation/validate.js';
 import { ProjectStore } from './projects/projectStore.js';
-import { resolveCaseInsensitive } from './util/fsx.js';
+import { exists, resolveCaseInsensitive } from './util/fsx.js';
 
 /**
  * @typedef {Object} ModuleData
@@ -2290,6 +2290,65 @@ export class WarbandEngine {
       })),
       projects: { root: path.join(this.projectRoot, 'projects') },
     };
+  }
+
+  async getDiagnostics() {
+    const status = this.getStatus();
+    const paths = {
+      projectRoot: this.projectRoot,
+      projects: path.join(this.projectRoot, 'projects'),
+      workspaces: path.join(this.projectRoot, 'workspace'),
+      backups: path.join(this.projectRoot, 'backups'),
+      cache: path.join(this.projectRoot, 'cache'),
+      log: path.join(this.projectRoot, 'cache', 'logs', 'server.log'),
+    };
+    const directoryChecks = [];
+    for (const key of ['projects', 'workspaces', 'backups', 'cache']) {
+      directoryChecks.push({
+        id: `dir-${key}`,
+        label: key,
+        ok: await exists(paths[key]),
+        detail: paths[key],
+      });
+    }
+    const major = Number(process.versions.node.split('.')[0]);
+    const checks = [
+      { id: 'node', label: 'Node.js 22+', ok: major >= 22, detail: process.version },
+      { id: 'installation', label: 'Instalación Warband', ok: Boolean(this.installation), detail: this.installation?.rootPath ?? 'no detectada' },
+      { id: 'modules', label: 'Módulos', ok: this.modules.length > 0, detail: this.modules.map((module) => module.id).join(', ') || 'ninguno' },
+      ...directoryChecks,
+    ];
+    return {
+      ok: checks.every((check) => check.ok),
+      version: '0.11.0',
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      uptimeSeconds: Math.round(process.uptime()),
+      memory: process.memoryUsage(),
+      initMs: this.initMs,
+      status,
+      checks,
+      paths,
+      recovery: [
+        'Errores de proyecto: usa Copias para restaurar una revisión anterior.',
+        'Errores de workspace: usa Copias → restaurar archivo; la copia actual se guarda antes.',
+        'Builds: usa Ver diff o Rollback al proyecto desde la vista Build.',
+        'Instalación: abre ⚙ y registra la carpeta que contiene mb_warband.exe.',
+      ],
+    };
+  }
+
+  async getLogTail(lines = 200) {
+    const count = Math.max(1, Math.min(2000, Number(lines) || 200));
+    const file = path.join(this.projectRoot, 'cache', 'logs', 'server.log');
+    try {
+      const text = await readFile(file, 'utf8');
+      const all = text.split(/\r?\n/).filter(Boolean);
+      return { file, lines: all.slice(-count), total: all.length };
+    } catch {
+      return { file, lines: [], total: 0 };
+    }
   }
 
   /** Forget parsed module data (files changed on disk). */

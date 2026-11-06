@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 9 (current): hardening — build retention, project rollback, source/build diff, backup pruning and module.ini resource integration.**
+- **Phase 10 (current): production polish — portable release, first-run setup, diagnostics/logs, recovery guidance and accessibility.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -45,7 +45,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-114 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+115 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -82,6 +82,7 @@ backups/      automatic project backups
 - [Outfits & armor](docs/architecture/OUTFITS.md)
 - [Item editor](docs/architecture/ITEMS.md)
 - [Builder](docs/architecture/BUILDER.md)
+- [User guide](docs/guides/USER-GUIDE.md) · [Release guide](docs/guides/RELEASE.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF format](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
@@ -97,4 +98,4 @@ backups/      automatic project backups
 
 ## Status
 
-Phase 9 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 10 scope.
+Phase 10 complete — the 0–10 roadmap is feature-complete. See [PROGRESS.md](PROGRESS.md) and [PROJECT_PLAN.md](PROJECT_PLAN.md).

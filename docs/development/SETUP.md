@@ -155,7 +155,29 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 9 result: **114 passing**.
+Expected Phase 10 result: **115 passing**.
+
+## Release
+
+```bat
+npm run release
+```
+
+Creates `dist/warband-outfit-studio-<version>/` with the launcher, optional
+bundled Node runtime, source folders, docs and empty writable directories.
+Use `node tools/build-release.js --no-runtime` to require Node from PATH.
+
+## Diagnostics
+
+Open **Sistema**:
+
+- health checks for Node, installation, modules and writable roots;
+- environment/memory/uptime data;
+- recovery guidance;
+- server log tail from `cache/logs/server.log`.
+
+If no installation is registered at startup, the setup wizard opens
+automatically.
 
 ## CLI tools
 
@@ -238,6 +260,8 @@ config/profiles.json  local installation profiles (created on first run)
 | Build pipeline | `engine.buildProject`, `frontend/js/build.js` |
 | Build artifacts | workspace `<id>/build.json`, `build.log`, `project.json`, `Modules/...` |
 | Build diff/rollback | `engine.diffBuild`, `engine.rollbackBuild` |
+| Diagnostics/logs | `engine.getDiagnostics`, `backend/server` log file |
+| Release packaging | `tools/build-release.js`, `npm run release` |
 | Retention | `engine.pruneBuilds`, `engine.pruneBackups` |
 | Texture import | `engine.importTexture`, `WorkspaceStore`, `project.textures` |
 | Override persistence/export | `engine/resources/meshOverride.js`, `projectStore.saveMeshOverride` |

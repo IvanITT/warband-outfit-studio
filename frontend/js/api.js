@@ -37,6 +37,8 @@ async function request(path, options = {}) {
 
 export const api = {
   status: () => request('/api/status'),
+  diagnostics: () => request('/api/diagnostics'),
+  logs: (lines = 200) => request(`/api/logs?lines=${encodeURIComponent(String(lines))}`),
   modules: () => request('/api/modules'),
   summary: (module) => request(`/api/modules/${encodeURIComponent(module)}/summary`),
   items: ({ module, slot, category, q, limit = 500, offset = 0 }) => {

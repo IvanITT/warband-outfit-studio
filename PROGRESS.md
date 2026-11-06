@@ -862,3 +862,76 @@ New coverage:
 ### Milestone
 
 Tag `phase-9-hardening`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 10 — Build, Launch & Production Polish
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Make the project distributable and supportable: portable release, first-run
+setup, diagnostics/logs, recovery guidance and accessibility polish.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Release | `npm run release`; portable folder, Windows launcher, optional bundled Node runtime |
+| First run | automatic installation wizard when no installation is registered |
+| Diagnostics | **Sistema** health checks, environment, recovery guidance and log tail |
+| Logging | `cache/logs/server.log`, 1 MB rotation, `/api/logs` |
+| Accessibility | live status, `aria-current`, `/` search shortcut, focus-visible, reduced motion |
+| Docs | user guide and release guide |
+| Tests | 115 automated tests |
+
+### Tests
+
+`npm test` → **115 / 115 passing** (~6.1 s).
+
+New coverage:
+
+- portable release structure with `--no-runtime`;
+- copied release server serves `/api/health`;
+- diagnostics and log endpoints;
+- release launcher/runtime metadata.
+
+### Verified against real data
+
+- Release test built the folder, imported its copied server and reached
+  `/api/health` successfully.
+- Diagnostics reports installation/modules/Node/writable-root checks.
+- Server log tail is readable from **Sistema**.
+- Bundled-runtime release was exercised manually.
+- No game files were modified.
+
+### Findings
+
+1. **Portable folder release works without npm/install step** (F-47).
+2. **Release-relative paths work for server and frontend** (F-48).
+3. **Diagnostics can prove runtime/installation readiness without game writes**
+   (F-49).
+4. **First-run wizard avoids manual config editing** (F-50).
+
+### Known limitations
+
+- Packaging bundles `node.exe`, not a single SEA binary.
+- First-run discovery may need a manual path if the game is non-standard.
+- Diagnostics exposes log tail only; no export or log deletion UI.
+- Live game deployment remains intentionally manual.
+- Destructive actions still use `window.prompt`.
+
+### Documentation updated
+
+- `docs/guides/USER-GUIDE.md`, `docs/guides/RELEASE.md`.
+- `PROJECT_PLAN.md` (Phase 10 complete, roadmap complete, ADR-044…046,
+  findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`,
+  `docs/development/{DECISIONS,SETUP}.md`, `README.md`, version 0.11.0.
+
+### Milestone
+
+Tag `phase-10-production`. The Phase 0–10 roadmap is feature-complete. No game
+files were modified. `npm test` green.

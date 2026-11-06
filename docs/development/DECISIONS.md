@@ -474,3 +474,40 @@ must be loaded by name. Appending preserves existing formatting and order.
 
 **Consequences:** no removal or reordering is attempted; duplicate or stale
 entries remain the author's responsibility.
+
+## ADR-044 — Portable release with an optional bundled Node runtime
+
+**Decision:** `npm run release` copies the zero-dependency runtime tree,
+frontend, docs and launcher into `dist/`. By default it bundles the current
+`node.exe`; `--no-runtime` produces a smaller folder that uses Node on `PATH`.
+
+**Rationale:** the application has no npm dependencies, so a portable folder is
+already self-contained apart from the runtime. Bundling the runtime removes the
+developer-toolchain prerequisite without requiring a custom SEA bundler.
+
+**Consequences:** release size grows by the Node binary; keep
+`runtime/NODE-RUNTIME.txt`. A single SEA executable remains a post-1.0 option.
+
+## ADR-045 — Diagnostics logs live under `cache/logs`
+
+**Decision:** server diagnostics append to `cache/logs/server.log` with a single
+1 MB rotation (`server.log.1`). The UI reads only a bounded tail.
+
+**Rationale:** logs are derived data and belong with the cache; writing them
+under a new top-level directory would violate the write-root convention. A
+bounded tail avoids loading large files into the browser.
+
+**Consequences:** logs are not part of a project, are safe to delete and are
+not included in backups.
+
+## ADR-046 — First run opens the installation wizard
+
+**Decision:** when no valid installation is active, the app automatically opens
+the existing installation-profile modal and shows setup guidance.
+
+**Rationale:** configuration files are error-prone for first-time users. The
+wizard already validates paths and stores profiles; reusing it keeps one path
+for installation management.
+
+**Consequences:** the wizard must be dismissible; users can reopen it with the
+gear button. Non-standard installations still require manual path entry.
