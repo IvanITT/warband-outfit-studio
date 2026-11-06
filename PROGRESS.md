@@ -346,3 +346,75 @@ New suites:
 ### Milestone
 
 Tag `phase-2-module-manager`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 3 — 3D Viewport
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Render real Warband meshes locally in the browser, with no CDN and no runtime dependency beyond a vendored pinned library, and verify a real armor asset end to end.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Library | Three.js **0.169.0** vendored in `frontend/vendor/three/` (MIT) |
+| Viewport | WebGL renderer, perspective camera, custom orbit/pan/zoom, grid, hemisphere + directional lights, resize observer |
+| Data | `engine.getMeshRenderData` (expand per vertex, base64 typed arrays, bbox/counts) and `engine.getTextureFile` |
+| API | `GET /api/meshes/:name/geometry`, `GET /api/textures/:name/raw` (binary) |
+| DDS | browser decoder for DXT1/3/5 (DX10 BC1–BC3) + uncompressed 32-bit fallback |
+| UI | **Visor** tab (search, load, stats), framing/grid/wireframe/V-flip toggles, “Ver en visor 3D” from the asset index |
+| Performance | render loop paused when the tab is hidden; pixel ratio capped at 2 |
+
+### Tests
+
+`npm test` → **81 / 81 passing** (~4.4 s).
+
+New suites:
+
+- `unit/ddsDecode` (4): DXT1 4-colour and transparent modes, DXT5 alpha, bad magic.
+- `integration/renderdata` (3): per-vertex expansion, raw DDS bytes, missing-texture code.
+- `integration/api` extended: geometry payload and binary texture response.
+
+### Verified against real data
+
+- `mail_shirt_a`: 782 render vertices, 1,240 faces, 622 positions; max face index 781
+  → confirms faces index the **vertex list** and each vertex indexes positions (F-21).
+- Diffuse texture: 1024×1024 DXT1 decoded in the browser and displayed.
+- Screenshot (Phase 3): correct silhouette, chainmail texture, grid and UI.
+- Frame rate: **60 fps** (vsync) at 800×384.
+- No console errors; WebGL context created.
+
+### Findings
+
+1. **Face/vertex indexing**: BRF faces index the vertex list, not the position list. The
+   engine now expands positions/normals/UVs per vertex; a naive `positions[face]` mapping
+   would be wrong for meshes with UV seams (F-21).
+2. **UV convention**: the viewport defaults to V-flip (`v'=1-v`), matching OpenBRF's
+   documented behaviour; the exact engine sampling remains **LIKELY**, so a toggle is
+   exposed (F-22).
+3. **DDS rows are top-down**; `DataTexture` uses `flipY=false`, and the V toggle controls
+   the final orientation.
+
+### Known limitations
+
+- Bind pose only; no skeleton/skinning yet.
+- Diffuse map only; normal/spec preview is Phase 5.
+- No mipmaps, shadows, BC4–BC7 or cube maps.
+- One mesh at a time; no mesh editing.
+- Geometry is re-read per selection; no LRU cache.
+
+### Documentation updated
+
+- New `docs/architecture/VIEWPORT.md`.
+- `PROJECT_PLAN.md` (Phase 3 complete, Phase 4 proposed, ADR-021…023, findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`, `docs/development/{DECISIONS,SETUP}.md`,
+  `README.md`.
+
+### Milestone
+
+Tag `phase-3-viewport`. No game files were modified. `npm test` green.

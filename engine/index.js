@@ -36,10 +36,24 @@ import { resolveCaseInsensitive } from './util/fsx.js';
  */
 
 /**
+ * @param {any} array Typed array.
+ */
+function encodeTypedArray(array) {
+  let type = 'Uint8Array';
+  if (array instanceof Float32Array) type = 'Float32Array';
+  else if (array instanceof Uint32Array) type = 'Uint32Array';
+  else if (array instanceof Int32Array) type = 'Int32Array';
+  return {
+    type,
+    count: array.length,
+    data: Buffer.from(array.buffer, array.byteOffset, array.byteLength).toString('base64'),
+  };
+}
+
+/**
  * @param {any} entry MeshEntry from the BRF index.
  */
-function summarizeMeshEntry(entry) {
-  return {
+function summarizeMeshEntry(entry) {  return {
     name: entry.name,
     brf: entry.brf,
     material: entry.material,
@@ -576,6 +590,79 @@ export class WarbandEngine {
     // @ts-expect-error machine-readable
     error.code = 'BAD_REQUEST';
     throw error;
+  }
+
+  /**
+   * Render-ready mesh data for the viewport. Positions/normals/UVs are
+   * expanded per vertex (BRF faces index the vertex list; each vertex stores an
+   * index into the position array). Arrays are base64-encoded typed arrays.
+   *
+   * @param {string} moduleId
+   * @param {string} meshName
+   * @param {{ limits?: Partial<import('./resources/geometry.js').GeometryLimits> }} [options]
+   */
+  async getMeshRenderData(moduleId, meshName, options = {}) {
+    const { mesh, geometry } = await this.getMeshGeometry(moduleId, meshName, options);
+    const count = geometry.vertexCount;
+    const positions = new Float32Array(count * 3);
+    const normals = new Float32Array(count * 3);
+    const uvs = new Float32Array(count * 2);
+
+    for (let v = 0; v < count; v += 1) {
+      const positionIndex = geometry.vertices.index[v];
+      if (positionIndex < 0 || positionIndex >= geometry.positionCount) {
+        throw new Error(`Mesh '${meshName}' vertex ${v} references position ${positionIndex}`);
+      }
+      positions[v * 3] = geometry.positions[positionIndex * 3];
+      positions[v * 3 + 1] = geometry.positions[positionIndex * 3 + 1];
+      positions[v * 3 + 2] = geometry.positions[positionIndex * 3 + 2];
+      normals[v * 3] = geometry.vertices.normal[v * 3];
+      normals[v * 3 + 1] = geometry.vertices.normal[v * 3 + 1];
+      normals[v * 3 + 2] = geometry.vertices.normal[v * 3 + 2];
+      uvs[v * 2] = geometry.vertices.uv[v * 2];
+      uvs[v * 2 + 1] = geometry.vertices.uv[v * 2 + 1];
+    }
+
+    return {
+      mesh,
+      layout: geometry.layout,
+      uvFlip: 'v', // OpenBRF flips V for GL/Warband display
+      bbox: geometry.bbox,
+      counts: { vertices: count, faces: geometry.faceCount, positions: geometry.positionCount },
+      arrays: {
+        positions: encodeTypedArray(positions),
+        normals: encodeTypedArray(normals),
+        uvs: encodeTypedArray(uvs),
+        indices: encodeTypedArray(geometry.faces),
+      },
+    };
+  }
+
+  /**
+   * Raw texture bytes for the viewport (DDS decoded client-side).
+   * @param {string} moduleId
+   * @param {string} name
+   */
+  async getTextureFile(moduleId, name) {
+    const installation = this.requireInstallation();
+    const data = await this.getModuleData(moduleId);
+    const hit = data.textures.resolve(name);
+    if (!hit.exists || !hit.filePath) {
+      const error = new Error(`Texture '${name}' was not found on disk.`);
+      // @ts-expect-error machine-readable
+      error.code = 'TEXTURE_NOT_FOUND';
+      throw error;
+    }
+    const root = path.resolve(installation.rootPath);
+    const file = path.resolve(hit.filePath);
+    if (file !== root && !file.startsWith(root + path.sep)) {
+      const error = new Error('Texture path must be inside the Warband installation.');
+      // @ts-expect-error machine-readable
+      error.code = 'PATH_OUTSIDE_INSTALLATION';
+      throw error;
+    }
+    const buffer = await readFile(file);
+    return { buffer, filePath: file, fileName: path.basename(file), name: hit.name };
   }
 
   /* ---------------------------------------------------------------- */

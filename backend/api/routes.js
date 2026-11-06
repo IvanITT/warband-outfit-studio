@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.3.0',
-        phase: 2,
+        version: '0.4.0',
+        phase: 3,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -150,6 +150,29 @@ export function createApi(engine) {
         decodeURIComponent(resourceDetail[2]),
       );
       return { ok: true, module: moduleId, ...result };
+    }
+
+    /* ---- viewport data ---- */
+
+    const meshGeometry = urlPath.match(/^\/api\/meshes\/(.+)\/geometry$/);
+    if (method === 'GET' && meshGeometry) {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.getMeshRenderData(moduleId, decodeURIComponent(meshGeometry[1]));
+      return { ok: true, module: moduleId, ...result };
+    }
+
+    const textureRaw = urlPath.match(/^\/api\/textures\/(.+)\/raw$/);
+    if (method === 'GET' && textureRaw) {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.getTextureFile(moduleId, decodeURIComponent(textureRaw[1]));
+      return {
+        __binary: true,
+        body: result.buffer,
+        contentType: 'application/octet-stream',
+        headers: {
+          'X-Texture-Name': result.fileName,
+        },
+      };
     }
 
     /* ---- backups ---- */

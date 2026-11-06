@@ -65,14 +65,26 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   assert.equal(resource.detail.material.name, 'mail_shirt_a');
   assert.ok(resource.detail.usedByItems.some((item) => item.id === 'itm_mail_shirt'));
 
+  const geometryResponse = await fetch(`${base}/api/meshes/mail_shirt_a/geometry?module=Native`);
+  const geometry = await geometryResponse.json();
+  assert.equal(geometry.ok, true);
+  assert.equal(geometry.counts.vertices, 782);
+  assert.ok(geometry.arrays.positions.data.length > 100);
+  assert.equal(geometry.arrays.positions.type, 'Float32Array');
+
+  const textureResponse = await fetch(`${base}/api/textures/mail_shirt_a/raw?module=Native`);
+  assert.equal(textureResponse.status, 200);
+  assert.equal(textureResponse.headers.get('content-type'), 'application/octet-stream');
+  const textureBytes = new Uint8Array(await textureResponse.arrayBuffer());
+  assert.equal(String.fromCharCode(...textureBytes.slice(0, 4)), 'DDS ');
+
   const backupsResponse = await fetch(`${base}/api/backups`);
   const backupList = await backupsResponse.json();
   assert.equal(backupList.ok, true);
   assert.ok(Array.isArray(backupList.projects));
   assert.ok(Array.isArray(backupList.workspaces));
 
-  const workspaceResponse = await fetch(`${base}/api/workspaces`, {
-    method: 'POST',
+  const workspaceResponse = await fetch(`${base}/api/workspaces`, {    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ label: 'API Workspace', module: 'Native' }),
   });

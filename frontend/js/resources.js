@@ -7,7 +7,7 @@ import { el, badge, stat, displayName, shortPath, emptyState } from './ui.js';
  * @param {{ api:any, state:any, dom:any, setStatus:(text:string)=>void, openItem:(id:string)=>void }} ctx
  */
 export function createResourcesView(ctx) {
-  const { api, state, dom, setStatus, openItem } = ctx;
+  const { api, state, dom, setStatus, openItem, openViewer } = ctx;
   const view = {
     type: 'mesh',
     q: '',
@@ -169,6 +169,9 @@ export function createResourcesView(ctx) {
       header(name, `${shortPath(primary.brf)} · ${primary.material}`,
         [badge('malla', 'accent'), badge(`v${primary.vertexVersion}`), primary.rigged ? badge('rigged') : badge('rígida')]),
       stats,
+      el('div', { class: 'viewer-launch' }, [
+        el('button', { class: 'primary', type: 'button', text: 'Ver en visor 3D', onclick: () => openViewer(name) }),
+      ]),
       el('h3', { class: 'section-title', text: 'Cadena y familia' }),
       el('div', { class: 'chain' }, chain),
     );

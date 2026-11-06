@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 2 (current): game & module manager — installation profiles, asset index, workspace lifecycle, backup catalogue and restore.**
+- **Phase 3 (current): 3D viewport — vendored Three.js, mesh rendering, orbit camera, client-side DDS preview.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -35,7 +35,7 @@ node backend\server\index.js --open
 
 The server binds to `127.0.0.1:8791` (next free port if busy) and opens the UI.
 
-Views: **Prendas** (items), **Recursos** (mesh/material/texture/shader index), **Workspaces** (create/delete), **Copias** (backup catalogue and restore). The gear button manages installation profiles.
+Views: **Prendas** (items), **Recursos** (mesh/material/texture/shader index), **Visor** (3D mesh preview), **Workspaces** (create/delete), **Copias** (backup catalogue and restore). The gear button manages installation profiles.
 
 Configure the installation by copying `config/app.example.json` to `config/app.json` and setting `installationPath`, or with the `WARBAND_DIR` environment variable. `config/app.json` is machine-specific and git-ignored.
 
@@ -45,7 +45,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-74 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+81 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -76,6 +76,7 @@ backups/      automatic project backups
 - [Project plan (canonical)](PROJECT_PLAN.md)
 - [Architecture](docs/architecture/ARCHITECTURE.md)
 - [Game & module manager](docs/architecture/MANAGER.md)
+- [3D viewport](docs/architecture/VIEWPORT.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF format](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
@@ -91,4 +92,4 @@ backups/      automatic project backups
 
 ## Status
 
-Phase 2 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 3 scope.
+Phase 3 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 4 scope.

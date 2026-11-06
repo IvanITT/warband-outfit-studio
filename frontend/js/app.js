@@ -6,6 +6,7 @@ import { createOutfitsView } from './outfits.js';
 import { createResourcesView } from './resources.js';
 import { createBackupsView } from './backups.js';
 import { createWorkspacesView } from './workspaces.js';
+import { createViewer } from './viewer.js';
 import { createInstallations } from './installations.js';
 
 const state = {
@@ -36,6 +37,7 @@ const dom = {
   views: {
     outfits: document.getElementById('view-outfits'),
     resources: document.getElementById('view-resources'),
+    viewer: document.getElementById('view-viewer'),
     workspaces: document.getElementById('view-workspaces'),
     backups: document.getElementById('view-backups'),
   },
@@ -59,6 +61,18 @@ const dom = {
   resourceDetail: document.getElementById('resource-detail'),
   resourceRefs: document.getElementById('resource-refs'),
   resourceRefsCount: document.getElementById('resource-refs-count'),
+  // viewer
+  viewerCount: document.getElementById('viewer-count'),
+  viewerSearch: document.getElementById('viewer-search'),
+  viewerList: document.getElementById('viewer-list'),
+  viewerMore: document.getElementById('viewer-more'),
+  viewerCanvas: document.getElementById('viewer-canvas'),
+  viewerTitle: document.getElementById('viewer-title'),
+  viewerStatus: document.getElementById('viewer-status'),
+  viewerReset: document.getElementById('viewer-reset'),
+  viewerGrid: document.getElementById('viewer-grid'),
+  viewerWire: document.getElementById('viewer-wire'),
+  viewerFlip: document.getElementById('viewer-flip'),
   // backups
   backupsCount: document.getElementById('backups-count'),
   backupsList: document.getElementById('backups-list'),
@@ -118,6 +132,7 @@ const resources = createResourcesView({
   },
   setStatus,
   openItem,
+  openViewer,
 });
 
 const backups = createBackupsView({
@@ -135,6 +150,25 @@ const workspaces = createWorkspacesView({
     create: dom.workspaceCreate,
     label: dom.workspaceLabel,
     refresh: dom.workspacesRefresh,
+  },
+  setStatus,
+});
+
+const viewer = createViewer({
+  api,
+  state,
+  dom: {
+    count: dom.viewerCount,
+    search: dom.viewerSearch,
+    list: dom.viewerList,
+    more: dom.viewerMore,
+    canvas: dom.viewerCanvas,
+    title: dom.viewerTitle,
+    status: dom.viewerStatus,
+    reset: dom.viewerReset,
+    grid: dom.viewerGrid,
+    wire: dom.viewerWire,
+    flip: dom.viewerFlip,
   },
   setStatus,
 });
@@ -233,19 +267,25 @@ async function loadCurrentView() {
   if (!state.status?.ok) return;
   if (state.view === 'outfits') await outfits.loadModule(state.moduleId);
   else if (state.view === 'resources') await resources.load(state.moduleId);
+  else if (state.view === 'viewer') await viewer.loadList(state.moduleId);
   else if (state.view === 'workspaces') await workspaces.load();
   else await backups.load();
   updateHint();
 }
 
 async function switchView(view) {
+  const previous = state.view;
   state.view = view;
   for (const tab of dom.tabs) tab.classList.toggle('is-active', tab.dataset.view === view);
   for (const [name, node] of Object.entries(dom.views)) node.hidden = name !== view;
+  if (previous === 'viewer' && view !== 'viewer') viewer.setActive(false);
   if (view === 'outfits') {
     if (!state.summary) await outfits.loadModule(state.moduleId);
   } else if (view === 'resources') {
     await resources.load(state.moduleId);
+  } else if (view === 'viewer') {
+    viewer.setActive(true);
+    await viewer.loadList(state.moduleId);
   } else if (view === 'workspaces') {
     await workspaces.load();
   } else {
@@ -256,6 +296,10 @@ async function switchView(view) {
 
 function openItem(id) {
   switchView('outfits').then(() => outfits.selectItem(id));
+}
+
+function openViewer(meshName) {
+  switchView('viewer').then(() => viewer.select(meshName));
 }
 
 async function refreshAll() {
@@ -333,6 +377,7 @@ async function init() {
   resources.init();
   backups.init();
   workspaces.init();
+  viewer.init();
   installations.init();
   wireShell();
 

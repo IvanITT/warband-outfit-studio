@@ -139,6 +139,28 @@ BrfIndex
   parseErrors[]
 ```
 
+### 3.1 Render-ready mesh data
+
+```
+MeshRenderData
+  mesh        mesh metadata
+  layout      0 | 1 | 2
+  uvFlip      'v'  (OpenBRF convention)
+  bbox        { min, max } | null
+  counts      { vertices, faces, positions }
+  arrays      {
+    positions: { type:'Float32Array', count, data: base64 },
+    normals:   { type:'Float32Array', count, data: base64 },
+    uvs:       { type:'Float32Array', count, data: base64 },
+    indices:   { type:'Uint32Array',  count, data: base64 }
+  }
+```
+
+BRF faces index the **vertex list**; each vertex stores `index` into the
+position array. `engine.getMeshRenderData` expands positions/normals/UVs per
+vertex so the viewport can use the face array as `BufferGeometry.index`.
+Base64 keeps the JSON response compact.
+
 ## 4. Resolved chain
 ```
 ItemChain
@@ -236,7 +258,6 @@ Invariants and safety rules (tested):
 same guarded path.
 
 ## 8. Installation profiles
-
 ```
 ProfilesDocument
   schemaVersion   1

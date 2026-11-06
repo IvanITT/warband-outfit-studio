@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 2 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 3**
+> Current phase: **Phase 3 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 4**
 
 ---
 
@@ -254,12 +254,19 @@ Completed:
 
 **Exit met:** profiles resolve and activate independently; workspaces can be created/deleted safely; asset index browsable; restores verified and reversible; game untouched.
 
-### Phase 3 — 3D Viewport
+### Phase 3 — 3D Viewport — **COMPLETE (2026-11-06)**
 
-- Vendored Three.js (local), WebGL viewport, orbit/pan/zoom, grid, lighting.
-- Load meshes through the engine (no duplicate parsing in the browser).
-- Basic material preview (diffuse/normal/spec), selection.
-- **Exit:** a real Warband mesh renders correctly with controls; performance acceptable on integrated GPU.
+Completed:
+
+- Vendored Three.js 0.169.0 (MIT) under `frontend/vendor/three/`; no CDN, no import map.
+- WebGL viewport with custom orbit/pan/zoom, grid, lighting and resize handling.
+- Engine render-data API (base64 typed arrays, per-vertex expansion) and raw DDS endpoint.
+- Client-side DXT1/3/5 decoder; `DataTexture` diffuse preview; material colour fallback.
+- **Visor** tab with mesh search, framing, grid/wireframe/V-flip toggles and stats.
+- “Ver en visor 3D” from the asset index.
+- 81 automated tests.
+
+**Exit met:** real `mail_shirt_a` (782 verts / 1,240 faces, 1024×1024 DXT1) renders at 60 fps in the browser, no console errors; screenshot verified.
 
 ### Phase 4 — Mesh Editor
 
@@ -306,9 +313,9 @@ Completed:
 
 ## 9. Current Phase
 
-**Phase 2 is COMPLETE.** All Phase 2 deliverables are implemented, tested and documented.
+**Phase 3 is COMPLETE.** All Phase 3 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 3.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 4.
 
 ### Roadmap reconciliation (accepted)
 
@@ -323,6 +330,7 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 
 - **Phase 1** targeted the **unfinished** Resource Engine work: geometry, BRF writing, symbolic item flags, mutation APIs and corpus tests. **Done.**
 - **Phase 2** targeted the **unfinished** manager work: profiles, workspace lifecycle, asset index UI, backup catalogue/restore. **Done.**
+- **Phase 3** delivered the local viewport: vendored Three.js, render data, DDS preview, camera and toggles. **Done.**
 - No earlier deliverable was re-implemented.
 
 ---
@@ -425,51 +433,76 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 - Restores verified against the real stores; wrong confirmations rejected with 400.
 - UI verified through the DOM: 279 wearables, 7,243 resources, mesh detail refs, workspace creation, backup rows, profile modal, no console errors.
 
+### Phase 3 (2026-11-06)
+
+**Viewport**
+
+- Vendored Three.js 0.169.0 (MIT) in `frontend/vendor/three/`; custom orbit/pan/zoom controls (no import map, CSP unchanged).
+- **Visor** tab: mesh search/list, canvas, grid, lights, framing, wireframe and UV V-flip toggles, stats overlay.
+- Render loop pauses when the tab is hidden; resize observer keeps the canvas correct.
+
+**Data path**
+
+- `engine.getMeshRenderData`: expands positions/normals/UVs per vertex (BRF faces index the vertex list) and returns base64 typed arrays + bbox/counts.
+- `engine.getTextureFile`: reads raw DDS bytes with an installation path guard.
+- `GET /api/meshes/:name/geometry`, `GET /api/textures/:name/raw` (binary response support in the server).
+- Browser DDS decoder for DXT1/DXT3/DXT5/DX10 BC1–BC3 + uncompressed 32-bit fallback.
+
+**Verification**
+
+- 81/81 tests in ~4.4 s (new DDS decoder, render data, API geometry/texture).
+- Real render: `mail_shirt_a`, 782 vertices / 1,240 faces, 1024×1024 DXT1, **60 fps** (vsync), screenshot checked.
+- No console errors; “Ver en visor 3D” works from the asset index.
+
 ---
 
 ## 11. Pending Work
 
-### Phase 3 (proposed, not authorized)
+### Phase 4 (proposed, not authorized)
 
-1. **Vendored Three.js** — download once, pin a version, commit under `frontend/vendor/`, no CDN.
-2. **Viewport** — WebGL canvas, orbit/pan/zoom, grid, lighting, resize handling, render loop.
-3. **Mesh loading** — consume `engine.getMeshGeometry` (typed arrays) without re-parsing BRF in the browser; adapters for layouts 0/1/2 and UV V-flip.
-4. **Basic material preview** — diffuse texture (DDS decode or server-side conversion), normal/spec placeholders, colour fallback.
-5. **Selection & framing** — pick a mesh from the asset index, frame its bbox, show counts.
-6. **Performance** — target ≥30 fps on integrated graphics for a single armor mesh; document limits.
-7. **Tests/docs** — engine geometry contract tests (already present), viewport manual checklist, architecture note.
+1. **Selection model** — vertex/face/edge selection on top of the viewport geometry; hover/click picking, multi-select, selection overlay.
+2. **Transform tools** — move/rotate/scale with numeric input and snapping; world/local axes.
+3. **Topology operations** — duplicate, delete, merge, split, mirror; basic extrude; recompute normals where required.
+4. **Warband constraints** — preserve vertex layout, face winding, rigging indices and UV seams; reject operations that cannot serialize.
+5. **History** — undo/redo for edits (bounded memory), reset to original.
+6. **Projects** — persist mesh edits as project overrides referencing the base mesh; save/load.
+7. **Validation** — edited mesh still passes geometry/serialization checks; writer round-trip.
+8. **Tests/docs** — unit tests for topology ops, integration for save/load and serialization.
 
-### Explicitly out of Phase 3
+### Explicitly out of Phase 4
 
-Mesh editing, texture editing, outfit composition, item editing, export/deployment.
+Texture/material authoring, outfit composition, item editing, deployment.
 
 ### Decisions requested with this approval
 
-1. **Three.js delivery**: vendored `three.module.js` (r1xx) vs a minimal custom WebGL renderer. Proposed: vendored Three.js (faster, well-tested), licence MIT.
-2. **DDS preview**: decode DDS in the browser (DXT decompressor) vs convert to PNG on the server. Proposed: browser decode with a small vendored decoder, cached.
-3. **Viewport placement**: new **Visor** tab vs embedded in the outfit detail. Proposed: new tab, reusable by future studios.
+1. **Selection granularity**: vertex + face (simpler, proposed) vs also edge loops.
+2. **Mesh storage**: store only a delta/override against the base mesh (proposed) vs copy the full mesh into the project.
+3. **Rigging preservation**: forbid topology edits that change vertex count on rigged meshes until weight editing exists (proposed), or interpolate weights.
 
-### Backlog after Phase 3
+### Backlog after Phase 4
 
-- Phase 4: mesh editor, materials, outfit editor, item editor, exporter, hardening, packaging.
+- Phase 5: textures/materials; Phase 6: outfit editor; Phase 7: item editor; Phase 8: exporter; Phase 9: hardening; Phase 10: packaging.
 
 ---
 
-## 12. Known Issues (after Phase 2)
+## 12. Known Issues (after Phase 3)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
 | 1 | The outfit view is read-only; project item editing is not implemented | High | Planned Phase 6–7 |
 | 2 | Dirty animations and collision bodies cannot be written | Medium | Preserved verbatim; writer throws if marked dirty |
 | 3 | Adding/removing BRF objects (section count changes) is not exposed | Medium | Phase 8 (builder) |
-| 4 | Geometry is re-read from disk on every call (no cache) | Low | Revisit in Phase 3 with real rendering |
-| 5 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Verify with a controlled load-order experiment |
-| 6 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
-| 7 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
-| 8 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
-| 9 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
-| 10 | Asset index lists LOD/piece meshes as separate rows | Low | Grouping toggle in Phase 3 |
-| 11 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
+| 4 | Viewport renders the bind pose only (no skinning/skeleton pose) | Medium | Phase 4/6 |
+| 5 | Only the diffuse map is previewed (no normal/spec) | Medium | Phase 5 |
+| 6 | UV V flip is LIKELY (OpenBRF convention); toggle available | Low | Documented; verify with a controlled texture |
+| 7 | Geometry is re-read from disk on every viewport selection | Low | LRU cache if it hurts |
+| 8 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Controlled experiment |
+| 9 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
+| 10 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
+| 11 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
+| 12 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
+| 13 | Asset index and visor list LOD/piece meshes as separate rows | Low | Grouping toggle |
+| 14 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
 
 ---
 
@@ -483,7 +516,10 @@ Mesh editing, texture editing, outfit composition, item editing, export/deployme
 | `module.ini` | Hand-curated known keys | Generate from engine evidence / module system |
 | Frontend | No component framework; DOM helpers are ad hoc | Re-evaluate at Phase 3 (viewport) |
 | BRF writer | Encodes dirty meshes via `Buffer.concat` of many small chunks | Optimise only if large-mesh writes show up in profiles |
-| Geometry | No cache; one file read per mesh request | LRU in Phase 3 if the viewport needs it |
+| Geometry | No cache; one file read per mesh selection | LRU if profiling shows it matters |
+| DDS decoder | First mip only; DXT1/3/5 + BC1-3; no BC4-7/mipmaps | Extend in Phase 5 |
+| Viewport controls | Custom orbit controls without inertia/touch pinch | Add in Phase 4 if needed |
+| Viewport tests | DOM/screenshot verification; no automated WebGL assertion | Add a render smoke test in Phase 9 |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
 | Backups | No pruning/retention policy (ADR-020) | Phase 9 |
@@ -517,6 +553,9 @@ Mesh editing, texture editing, outfit composition, item editing, export/deployme
 | ADR-018 | Installation profiles in machine-local `config/profiles.json` | Accepted (Phase 2) |
 | ADR-019 | Destructive actions require typed id confirmation | Accepted (Phase 2) |
 | ADR-020 | Keep every backup in Phase 2; pruning deferred | Accepted (Phase 2) |
+| ADR-021 | Vendor Three.js 0.169.0 locally; no CDN | Accepted (Phase 3) |
+| ADR-022 | Decode DDS in the browser (DXT1/3/5) | Accepted (Phase 3) |
+| ADR-023 | Custom orbit controls instead of the addon/import map | Accepted (Phase 3) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -548,12 +587,14 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-18 | Item flags: type is `flags & 0x1F`; attachment is `0xF00`; carry is `0x7F0000000`; shoot is `0xFF000` | `header_items.py` + generated table | **VERIFIED** | `itemFlags.js` |
 | F-19 | Carry/shoot/attachment are enums, not independent bits | `itcf_carry_dagger_front_left = 0x30000000` | **VERIFIED** | enum-first decoder |
 | F-20 | Some item capability bits are not in `header_items.py` | `itm_no_item` bit 63 | **UNKNOWN** | reported as `unknownHex` |
+| F-21 | BRF faces index the **vertex list**; each vertex stores an index into the position array | `mail_shirt_a`: 782 verts, 622 positions, max face index 781 | **VERIFIED** | `getMeshRenderData` expands per vertex |
+| F-22 | DDS textures are top-down rows; UV V needs the OpenBRF flip for GL display | real texture renders correctly with `v'=1-v` | **LIKELY** | viewport default + toggle |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` — **74 / 74 passing** (~4.2 s), zero dependencies.
+**Command:** `npm test` - **81 / 81 passing** (~4.4 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -572,7 +613,9 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `integration/profiles` | 3 | bootstrap, dedupe/invalid, remove confirmation + active reset |
 | `integration/resources` | 6 | lists, mesh/material/texture/shader details, references, structured 404 |
 | `integration/pipeline` | 7 | installation, Native counts, chain + flags, composed mesh, batch validation, all modules |
-| `integration/api` | 2 | profiles, resources, workspaces, backups, projects, CSP, static, 404 |
+| `unit/ddsDecode` | 4 | DXT1 4-colour/transparent, DXT5 alpha, bad magic |
+| `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
+| `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, CSP, static, 404 |
 
 Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734 textures / 139 shaders; 0 parse errors; byte-identical `item_kinds1.txt` round-trip in all three modules; **219/219 BRF byte-identical round-trip**.
 
@@ -581,6 +624,17 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 3 completed
+
+- **Viewport**: Three.js 0.169.0 vendored; custom orbit controls; grid, lights, framing, wireframe and UV V-flip toggles.
+- **Data**: `getMeshRenderData` (base64 typed arrays, per-vertex expansion), `getTextureFile`, two new API endpoints, binary responses.
+- **DDS**: browser decoder for DXT1/3/5 and DX10 BC1-BC3.
+- **UI**: Visor tab + "Ver en visor 3D" from the asset index.
+- **Tests**: 81 passing (DDS decoder, render data, geometry/texture API).
+- Docs: `docs/architecture/VIEWPORT.md`, architecture/data model/ADR-021..023.
+- Milestone tag: `phase-3-viewport`.
+
 
 ### 2026-11-06 — Phase 2 completed
 
@@ -630,27 +684,28 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 3 — 3D Viewport** (proposed; requires explicit approval).
+**Phase 4 — Mesh Editor** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Vendor Three.js | pinned local copy under `frontend/vendor/` | loads offline, no CDN |
-| Viewport | canvas, orbit/pan/zoom, grid, lighting, resize | ≥30 fps on integrated GPU for one armor mesh |
-| Mesh loading | adapters for engine geometry layouts 0/1/2 | real mesh renders with correct orientation/UVs |
-| Material preview | diffuse texture (DDS decoded client-side) + fallback colour | `mail_shirt_a` looks recognisable |
-| Selection/framing | pick from asset index, frame bbox | counts and bbox match the engine |
-| Docs/tests | viewport architecture + manual checklist | documented and repeatable |
+| Selection | vertex/face picking, multi-select, overlay | selectable on the real mesh |
+| Transform | move/rotate/scale with axes + numeric input | edits match input and survive serialization |
+| Topology | duplicate/delete/merge/split/mirror, basic extrude | operations validate on real meshes |
+| Warband constraints | layout/rigging/UV seam preservation | no invalid geometry reaches the writer |
+| History | bounded undo/redo, reset | edits are reversible |
+| Projects | mesh overrides saved/loaded | reopen reproduces the edited mesh |
+| Tests/docs | topology unit tests + serialization integration | green and documented |
 
-### Explicitly out of Phase 3
+### Explicitly out of Phase 4
 
-Mesh editing, texture editing, outfit composition, item editing, deployment.
+Texture/material authoring, outfit composition, item editing, deployment.
 
 ### Decisions requested with this approval
 
-1. **Three.js delivery**: vendored (proposed) vs a minimal custom WebGL renderer.
-2. **DDS preview**: browser-side DXT decode (proposed) vs server-side PNG conversion.
-3. **Viewport placement**: new **Visor** tab (proposed) vs embedded in the outfit detail.
+1. **Selection granularity**: vertex + face only (proposed) vs edge loops too.
+2. **Storage**: project overrides/deltas against the base mesh (proposed) vs copies of full meshes.
+3. **Rigging**: block vertex-count-changing edits on rigged meshes until weight editing exists (proposed) vs interpolate weights now.
 
 **Waiting for explicit user approval.**

@@ -70,6 +70,23 @@ export const api = {
   resource: (module, type, name) => request(
     `/api/resources/${type}/${encodeURIComponent(name)}?module=${encodeURIComponent(module)}`,
   ),
+  meshGeometry: (module, name) => request(
+    `/api/meshes/${encodeURIComponent(name)}/geometry?module=${encodeURIComponent(module)}`,
+  ),
+  textureBuffer: async (module, name) => {
+    const response = await fetch(
+      `/api/textures/${encodeURIComponent(name)}/raw?module=${encodeURIComponent(module)}`,
+    );
+    if (!response.ok) {
+      let payload = null;
+      try { payload = await response.json(); } catch { /* binary error */ }
+      throw new ApiError(payload?.error?.message ?? `Textura no disponible (${response.status})`, {
+        code: payload?.error?.code ?? 'TEXTURE_ERROR',
+        status: response.status,
+      });
+    }
+    return response.arrayBuffer();
+  },
 
   /* backups */
   backups: () => request('/api/backups'),

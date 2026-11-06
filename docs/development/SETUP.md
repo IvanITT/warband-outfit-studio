@@ -48,6 +48,17 @@ node backend\server\index.js --open
 
 Without `--open` the URL is printed and must be opened manually. The server tries ports 8791–8800.
 
+## 3D viewer
+
+Open the **Visor** tab, search a mesh (e.g. `mail_shirt_a`) and select it.
+
+- Left drag orbits, wheel zooms, right drag pans.
+- **Encuadrar** frames the bounding box; **Rejilla** toggles the grid;
+  **Wireframe** toggles wireframe; **Voltear V** flips the UV V axis.
+- Textures are served as raw DDS and decoded in the browser (DXT1/3/5).
+- Three.js is vendored at `frontend/vendor/three/` (0.169.0, MIT) — no network
+  is used at runtime.
+
 ## Tests
 
 ```bat
@@ -60,7 +71,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 2 result: **74 passing**.
+Expected Phase 3 result: **81 passing**.
 
 ## CLI tools
 
@@ -132,5 +143,8 @@ config/profiles.json  local installation profiles (created on first run)
 | Workspace lifecycle | `engine/resources/workspace.js` |
 | Asset index API | `engine/index.js` (`listResources`, `getResourceDetail`) |
 | Backup API | `projectStore.listBackups/restoreBackup`, `workspace.listBackups/restoreBackup` |
+| 3D viewer | `frontend/js/viewer.js`, `viewer-controls.js`, `dds.js` |
+| Viewport data API | `engine.getMeshRenderData`, `engine.getTextureFile` |
+| Vendored Three.js | `frontend/vendor/three/` (0.169.0, MIT) |
 | HTTP routes | `backend/api/routes.js` |
 | UI | `frontend/js/app.js` |

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.3.1" />
+  <link rel="stylesheet" href="/css/app.css?v=0.4.0" />
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 2</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 3</p>
         </div>
       </div>
 
@@ -40,6 +40,7 @@
     <nav class="viewnav" aria-label="Vistas">
       <button class="viewtab is-active" data-view="outfits" type="button">Prendas</button>
       <button class="viewtab" data-view="resources" type="button">Recursos</button>
+      <button class="viewtab" data-view="viewer" type="button">Visor</button>
       <button class="viewtab" data-view="workspaces" type="button">Workspaces</button>
       <button class="viewtab" data-view="backups" type="button">Copias</button>
       <span class="viewnav-spacer"></span>
@@ -143,8 +144,38 @@
       </aside>
     </main>
 
-    <main id="view-workspaces" class="view" hidden>
-      <section class="panel workspaces-panel">
+    <main id="view-viewer" class="view viewer-view" hidden>
+      <aside class="panel viewer-side">
+        <div class="panel-head">
+          <h2>Visor 3D</h2>
+          <span id="viewer-count" class="counter">—</span>
+        </div>
+        <div class="filters">
+          <input id="viewer-search" type="search" placeholder="Buscar malla…" autocomplete="off" />
+        </div>
+        <div id="viewer-list" class="item-list"></div>
+        <div class="list-footer">
+          <button id="viewer-more" class="ghost" type="button" hidden>Cargar más</button>
+        </div>
+      </aside>
+      <section class="viewer-stage">
+        <canvas id="viewer-canvas"></canvas>
+        <div class="viewer-overlay">
+          <div class="viewer-title-row">
+            <div id="viewer-title" class="viewer-title">Selecciona una malla</div>
+            <div class="viewer-tools">
+              <button id="viewer-reset" class="ghost small" type="button">Encuadrar</button>
+              <button id="viewer-grid" class="ghost small" type="button">Rejilla</button>
+              <button id="viewer-wire" class="ghost small" type="button">Wireframe</button>
+              <button id="viewer-flip" class="ghost small is-active" type="button">Voltear V</button>
+            </div>
+          </div>
+          <div id="viewer-status" class="viewer-status">Arrastra para orbitar · rueda para zoom · botón derecho para desplazar.</div>
+        </div>
+      </section>
+    </main>
+
+    <main id="view-workspaces" class="view" hidden>      <section class="panel workspaces-panel">
         <div class="panel-head">
           <h2>Workspaces</h2>
           <span id="workspaces-count" class="counter">—</span>
@@ -173,7 +204,7 @@
     <footer class="statusbar">
       <span id="status-text">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 2 · Game &amp; Module Manager</span>
+      <span class="status-meta">Fase 3 · 3D Viewport</span>
     </footer>
   </div>
 
@@ -200,6 +231,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.3.1"></script>
+  <script type="module" src="/js/app.js?v=0.4.0"></script>
 </body>
 </html>

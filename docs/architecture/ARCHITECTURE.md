@@ -141,6 +141,8 @@ The cache is derived data and safe to delete.
 | POST | `/api/validate` | batch validation `{ module, ids[] }` |
 | GET | `/api/resources` | asset index (`type`, `q`, paging) |
 | GET | `/api/resources/:type/:name` | mesh/material/texture/shader detail + references |
+| GET | `/api/meshes/:name/geometry` | render-ready base64 typed arrays + bbox/counts |
+| GET | `/api/textures/:name/raw` | raw DDS bytes (binary response) |
 | GET | `/api/workspaces` | workspace list |
 | POST | `/api/workspaces` | create `{ label, module }` |
 | DELETE | `/api/workspaces/:id?confirm=<id>` | delete workspace (typed confirmation) |
@@ -182,7 +184,7 @@ Errors use a stable envelope:
 | Runtime | Node.js 22, ESM | already installed, fast binary I/O, single language across engine/backend/tools |
 | Backend | `node:http` | zero dependencies, full control, tiny footprint |
 | Frontend | vanilla HTML/CSS/JS modules | no build step, no framework churn, instant startup |
-| 3D | deferred; vendor Three.js locally in Phase 3 | offline-safe, no CDN |
+| 3D | Three.js 0.169 vendored in `frontend/vendor/`; custom orbit controls | offline-safe, no CDN, no import map |
 | Types | JSDoc + `// @ts-check` | editor safety without a build toolchain |
 | Tests | `node:test` | built in, zero dependencies |
 | Storage | JSON files + filesystem | inspectable, diffable, no database |

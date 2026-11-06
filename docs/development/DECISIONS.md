@@ -180,3 +180,38 @@ more than tidiness. Pruning needs usage evidence and safe policies.
 
 **Consequences:** Phase 9 adds retention and rollback UX; until then the list
 may grow.
+
+## ADR-021 — Vendor Three.js instead of loading it at runtime
+
+**Decision:** pin Three.js 0.169.0 under `frontend/vendor/three/`, including its
+MIT licence; no CDN or package install.
+
+**Rationale:** the application must work offline, and the dependency surface
+must stay auditable. A local copy is a build-time choice, not a runtime service.
+
+**Consequences:** ~1.3 MB in the repository; updates are deliberate and tested.
+
+## ADR-022 — Decode DDS in the browser
+
+**Decision:** the server serves raw DDS bytes; `frontend/js/dds.js` decodes
+DXT1/DXT3/DXT5 to RGBA for a `DataTexture`.
+
+**Rationale:** avoids an image-conversion service or native dependency, keeps
+the texture pipeline local and lets the UI reuse the same bytes the game uses.
+Only the first mip is decoded.
+
+**Consequences:** unsupported DDS variants fall back to material colour; a
+larger decoder can replace the module later without touching the engine.
+
+## ADR-023 — Custom orbit controls, no addon or import map
+
+**Decision:** implement orbit/pan/zoom in `viewer-controls.js` instead of
+vendoring `OrbitControls`.
+
+**Rationale:** the Three.js addon imports the bare specifier `three`, which
+requires an import map (inline script, weakened CSP) or a bundler. The custom
+controls are ~100 lines, fully local, and sufficient for inspection.
+
+**Consequences:** no damping/inertia or touch gestures yet; add them if the
+viewport becomes a primary workflow.
+

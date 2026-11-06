@@ -133,6 +133,17 @@ export async function startServer(options = {}) {
     try {
       const body = req.method === 'POST' || req.method === 'PUT' ? await readJsonBody(req) : null;
       const result = await api.route(req, res, url.pathname.replace(/\/$/, ''), url.searchParams, body);
+      if (result && result.__binary) {
+        res.writeHead(200, {
+          'Content-Type': result.contentType ?? 'application/octet-stream',
+          'Content-Length': result.body.length,
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+          ...(result.headers ?? {}),
+        });
+        res.end(result.body);
+        return;
+      }
       sendJson(res, 200, result);
     } catch (error) {
       const code = /** @type {any} */ (error)?.code ?? 'INTERNAL_ERROR';
@@ -190,7 +201,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const started = await startServer();
   console.log('');
-  console.log('  WARBand Outfit Studio — Phase 2');
+  console.log('  WARBand Outfit Studio — Phase 3');
   console.log(`  ${started.url}`);
   if (!started.engine.installation) {
     console.log('  WARNING: no Warband installation detected. See /api/status for candidates.');
