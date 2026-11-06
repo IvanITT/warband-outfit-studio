@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WARBand Outfit Studio</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">W</div>
+        <div>
+          <h1>WARBand <span>Outfit Studio</span></h1>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 0</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div id="install-pill" class="pill pill-muted" title="Estado de la instalación">Detectando instalación…</div>
+        <label class="select-wrap">
+          <span>Módulo</span>
+          <select id="module-select" disabled>
+            <option>Cargando…</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel list-panel">
+        <div class="panel-head">
+          <h2>Prendas y armaduras</h2>
+          <span id="item-count" class="counter">—</span>
+        </div>
+
+        <div class="filters">
+          <input id="search" type="search" placeholder="Buscar por id o nombre…" autocomplete="off" />
+          <div id="slot-filters" class="chips" role="group" aria-label="Filtrar por ranura">
+            <button class="chip is-active" data-slot="">Todo</button>
+            <button class="chip" data-slot="body">Cuerpo</button>
+            <button class="chip" data-slot="head">Cabeza</button>
+            <button class="chip" data-slot="hand">Manos</button>
+            <button class="chip" data-slot="foot">Pies</button>
+            <button class="chip" data-category="cape">Capas</button>
+            <button class="chip" data-category="clothing">Ropa</button>
+          </div>
+        </div>
+
+        <div id="item-list" class="item-list" aria-live="polite"></div>
+        <div class="list-footer">
+          <button id="load-more" class="ghost" hidden>Cargar más</button>
+        </div>
+      </aside>
+
+      <section class="panel detail-panel">
+        <div id="detail" class="detail">
+          <div class="empty-state">
+            <div class="empty-icon">◈</div>
+            <h2>Selecciona una prenda</h2>
+            <p>Elige un ítem de la lista para inspeccionar su cadena completa:
+              ítem → malla → material → textura → archivo <code>.dds</code>.</p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel inspect-panel">
+        <div class="panel-head">
+          <h2>Validación</h2>
+          <span id="validation-summary" class="counter">—</span>
+        </div>
+        <div id="validation" class="validation">
+          <p class="muted">Las comprobaciones aparecen al seleccionar un ítem.</p>
+        </div>
+        <div class="inspect-footer">
+          <h3>Estado del motor</h3>
+          <dl id="engine-stats" class="kv">
+            <dt>Instalación</dt><dd>—</dd>
+          </dl>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span id="status-text">Iniciando…</span>
+      <span class="spacer"></span>
+      <span class="status-meta">Fase 0 · Arquitectura y fundación</span>
+    </footer>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

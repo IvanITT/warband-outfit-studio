@@ -1,0 +1,132 @@
+// @ts-check
+/** JSON API routes. All handlers return plain objects; errors bubble up. */
+
+/**
+ * @param {import('../../engine/index.js').WarbandEngine} engine
+ */
+export function createApi(engine) {
+  /**
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @param {string} urlPath
+   * @param {URLSearchParams} query
+   * @param {any} body
+   */
+  async function route(req, res, urlPath, query, body) {
+    const method = req.method ?? 'GET';
+
+    if (method === 'GET' && urlPath === '/api/health') {
+      return {
+        ok: true,
+        service: 'warband-outfit-studio',
+        version: '0.1.0',
+        phase: 0,
+        uptimeSeconds: Math.round(process.uptime()),
+        node: process.version,
+      };
+    }
+
+    if (method === 'GET' && urlPath === '/api/status') {
+      return { ok: true, ...engine.getStatus() };
+    }
+
+    if (method === 'GET' && urlPath === '/api/modules') {
+      engine.requireInstallation();
+      return {
+        ok: true,
+        modules: engine.modules.map((module) => ({
+          id: module.id,
+          slug: module.slug,
+          name: module.moduleName,
+          dirName: module.dirName,
+          version: module.version,
+          operationSetVersion: module.operationSetVersion,
+          capabilities: module.capabilities,
+          commonResources: module.commonResources.length,
+          moduleResources: module.moduleResources.length,
+          unknownIniKeys: module.unknownKeys,
+        })),
+      };
+    }
+
+    const moduleSummary = urlPath.match(/^\/api\/modules\/([^/]+)\/summary$/);
+    if (method === 'GET' && moduleSummary) {
+      return { ok: true, ...(await engine.getModuleSummary(decodeURIComponent(moduleSummary[1]))) };
+    }
+
+    if (method === 'GET' && urlPath === '/api/items') {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.listItems(moduleId, {
+        slot: query.get('slot') ?? undefined,
+        category: query.get('category') ?? undefined,
+        q: query.get('q') ?? undefined,
+        wearable: query.get('wearable') !== '0',
+        limit: Number(query.get('limit') ?? 100),
+        offset: Number(query.get('offset') ?? 0),
+      });
+      return { ok: true, module: moduleId, ...result };
+    }
+
+    const itemDetail = urlPath.match(/^\/api\/items\/([^/]+)$/);
+    if (method === 'GET' && itemDetail) {
+      const moduleId = query.get('module') ?? 'Native';
+      const detail = await engine.getItemDetail(moduleId, decodeURIComponent(itemDetail[1]));
+      return { ok: true, module: moduleId, ...detail };
+    }
+
+    if (method === 'POST' && urlPath === '/api/validate') {
+      if (!body || !Array.isArray(body.ids) || body.ids.length === 0) {
+        const error = new Error('Body must contain { module, ids: string[] }');
+        // @ts-expect-error machine-readable
+        error.code = 'BAD_REQUEST';
+        throw error;
+      }
+      const moduleId = body.module ?? 'Native';
+      const result = await engine.validate(moduleId, body.ids.map(String));
+      return { ok: true, module: moduleId, ...result };
+    }
+
+    if (method === 'GET' && urlPath === '/api/projects') {
+      return { ok: true, projects: await engine.projects.list() };
+    }
+
+    if (method === 'POST' && urlPath === '/api/projects') {
+      const installation = engine.requireInstallation();
+      const moduleId = body?.module ?? 'Native';
+      engine.requireModule(moduleId);
+      const project = await engine.projects.create({
+        name: body?.name ?? 'Untitled outfit project',
+        installationId: installation.id,
+        installationPath: installation.rootPath,
+        moduleId,
+        notes: body?.notes ?? '',
+      });
+      return { ok: true, project, file: `projects/${project.id}.json` };
+    }
+
+    const projectRoute = urlPath.match(/^\/api\/projects\/([^/]+)$/);
+    if (projectRoute) {
+      const id = decodeURIComponent(projectRoute[1]);
+      if (method === 'GET') {
+        return { ok: true, project: await engine.projects.load(id) };
+      }
+      if (method === 'PUT') {
+        if (!body?.project || body.project.id !== id) {
+          const error = new Error('Body must contain { project } with the same id');
+          // @ts-expect-error machine-readable
+          error.code = 'BAD_REQUEST';
+          throw error;
+        }
+        const saved = await engine.projects.save(body.project);
+        return { ok: true, project: saved, backup: true };
+      }
+    }
+
+    const notFound = new Error(`Unknown route ${method} ${urlPath}`);
+    // @ts-expect-error machine-readable
+    notFound.code = 'NOT_FOUND';
+    throw notFound;
+  }
+
+  return { route };
+}

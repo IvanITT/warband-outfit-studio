@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# derived data
+cache/*.json
+cache/*.tmp
+
+# user data
+projects/*.json
+backups/
+workspace/*
+!workspace/.gitkeep
+
+# local machine configuration (keep the committed example as a template)
+config/app.local.json
+
+# logs and OS files
+*.log
+Thumbs.db
+desktop.ini
+
+# test artifacts
+coverage/
+.nyc_output/

@@ -1,0 +1,12 @@
+{
+  "installationPath": "C:/Games/Mount and Blade Complete Collection/Mount and Blade - Warband",
+  "http": {
+    "host": "127.0.0.1",
+    "port": 8791
+  },
+  "defaultModule": "Native",
+  "cache": {
+    "enabled": true,
+    "directory": "cache"
+  }
+}
