@@ -181,6 +181,12 @@ Overrides (`project.meshes[]`) store the same arrays as base64 plus
 references the original BRF; exporting merges the override and writes a copy in
 `workspace/`.
 
+Material overrides (`project.materials[]`) store the material fields plus
+`source { moduleId, material, brf }`. Imported textures (`project.textures[]`)
+record `{ name, workspaceId, path, width, height, format, mipmaps, sha256 }`;
+material export copies every referenced texture into the workspace.
+**Material colours are 0–255, not 0–1 (VERIFIED).**
+
 ## 4. Resolved chain
 ```
 ItemChain

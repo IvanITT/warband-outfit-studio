@@ -60,6 +60,7 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | `engine/resources/geometry.js` | Lazy mesh geometry (positions, rigging, frames, vertices, faces, bbox) with limits. | IMPLEMENTED |
 | `engine/resources/workspace.js` | Only write target: guarded paths, atomic writes, backups, SHA-256. | IMPLEMENTED |
 | `engine/resources/meshOverride.js` | Project mesh overrides: decode, validate, merge into a BRF. | IMPLEMENTED |
+| `engine/resources/materialOverride.js` | Material overrides: validate, merge fields, collect textures. | IMPLEMENTED |
 | `engine/items/itemFlags.js` | Generated `itp_*` / `itcf_*` decoder. | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header parser. | IMPLEMENTED |
 | `engine/validation/*` | Rule catalogue + item chain validation. | IMPLEMENTED |
@@ -147,6 +148,12 @@ The cache is derived data and safe to delete.
 | GET/POST | `/api/projects/:id/meshes` | list/save mesh overrides |
 | GET/DELETE | `/api/projects/:id/meshes/:mesh` | load/delete an override |
 | POST | `/api/projects/:id/meshes/:mesh/export` | merge the override and write a workspace BRF |
+| GET | `/api/materials/:name/editable` | material fields, textures, shaders, users |
+| GET/POST | `/api/projects/:id/materials` | list/save material overrides |
+| GET/DELETE | `/api/projects/:id/materials/:name` | load/delete a material override |
+| POST | `/api/projects/:id/materials/:name/export` | merge material + copy textures |
+| POST | `/api/workspaces/:id/textures` | import a base64 DDS |
+| GET/POST | `/api/projects/:id/textures` | list/register project textures |
 | GET | `/api/textures/:name/raw` | raw DDS bytes (binary response) |
 | GET | `/api/workspaces` | workspace list |
 | POST | `/api/workspaces` | create `{ label, module }` |

@@ -40,7 +40,9 @@ export function createViewer(ctx) {
   let grid = null;
   let meshObject = null;
   let material = null;
-  let texture = null;
+  let materialEditable = null;
+  let materialFields = null;
+  const textureCache = new Map();
   let raf = null;
   let baseEditable = null;
   let model = null;
@@ -214,10 +216,10 @@ export function createViewer(ctx) {
       material.dispose();
       material = null;
     }
-    if (texture) {
-      texture.dispose();
-      texture = null;
-    }
+    for (const cached of textureCache.values()) cached.dispose();
+    textureCache.clear();
+    materialEditable = null;
+    materialFields = null;
     baseEditable = null;
     model = null;
     history = [];
@@ -249,7 +251,21 @@ export function createViewer(ctx) {
       model = createModel(editable);
       selection = { mode: selection.mode, vertices: new Set(), faces: new Set() };
 
-      await buildMaterial(detail);
+      const materialName = detail.detail.material?.name ?? null;
+      materialEditable = materialName
+        ? await api.materialEditable(state.moduleId, materialName)
+        : null;
+      if (materialEditable) populateMaterialPanel(materialEditable);
+      else clearMaterialPanel();
+
+      material = new THREE.MeshStandardMaterial({
+        color: 0xcccccc,
+        roughness: 0.78,
+        metalness: 0.05,
+        side: THREE.DoubleSide,
+        wireframe,
+      });
+      await applyMaterialPreview();
       buildMeshObject();
       applyModel({ reframe: true });
       dom.status.textContent = statusText(detail);
@@ -261,35 +277,218 @@ export function createViewer(ctx) {
     }
   }
 
-  async function buildMaterial(detail) {
-    const materialInfo = detail.detail.material;
-    const color = materialInfo?.color
-      ? new THREE.Color(materialInfo.color[0], materialInfo.color[1], materialInfo.color[2])
-      : new THREE.Color(0xcccccc);
+  async function loadTexture(name, role = 'diffuseA') {
+    if (!name || name === 'none') return null;
+    const key = name.toLowerCase();
+    if (textureCache.has(key)) return textureCache.get(key);
+    try {
+      const buffer = await api.textureBuffer(state.moduleId, name);
+      const dds = decodeDds(buffer);
+      const tex = new THREE.DataTexture(dds.data, dds.width, dds.height, THREE.RGBAFormat);
+      tex.flipY = false;
+      tex.colorSpace = role === 'diffuseA' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      tex.needsUpdate = true;
+      textureCache.set(key, tex);
+      return tex;
+    } catch (error) {
+      setMaterialMessage(`Textura ${name}: ${errorText(error)}`, 'error');
+      return null;
+    }
+  }
 
-    const diffuse = detail.detail.textures?.diffuseA;
-    if (diffuse?.file?.exists) {
+  async function applyMaterialPreview() {
+    if (!material || !materialEditable) return;
+    readMaterialForm();
+    const fields = materialFields;
+    const diffuse = await loadTexture(fields.diffuseA, 'diffuseA');
+    const normal = dom.matNormalToggle.checked ? await loadTexture(fields.bump, 'bump') : null;
+    const spec = dom.matSpecToggle.checked ? await loadTexture(fields.spec, 'spec') : null;
+
+    material.map = diffuse;
+    material.normalMap = normal;
+    material.normalScale.set(1, 1);
+    material.metalnessMap = spec;
+    material.metalness = spec ? 0.6 : 0.05;
+    material.roughness = Math.max(0.2, 0.9 - Number(fields.specular ?? 0) * 0.05);
+    material.color.setRGB(
+      diffuse ? 1 : fields.r / 255,
+      diffuse ? 1 : fields.g / 255,
+      diffuse ? 1 : fields.b / 255,
+    );
+    material.transparent = dom.matAlphaToggle.checked;
+    material.depthWrite = !dom.matAlphaToggle.checked;
+    material.side = dom.matDoubleToggle.checked ? THREE.DoubleSide : THREE.FrontSide;
+    material.needsUpdate = true;
+    setMaterialMessage('Preview actualizado');
+  }
+
+  function rgbToHex(r, g, b) {
+    const to = (value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0');
+    return `#${to(r)}${to(g)}${to(b)}`;
+  }
+
+  function hexToRgb(hex) {
+    const value = hex.replace('#', '');
+    return {
+      r: parseInt(value.slice(0, 2), 16),
+      g: parseInt(value.slice(2, 4), 16),
+      b: parseInt(value.slice(4, 6), 16),
+    };
+  }
+
+  function populateMaterialPanel(editable) {
+    materialFields = { ...editable.fields };
+    dom.matName.textContent = editable.material.name;
+    dom.matShader.replaceChildren(
+      ...(editable.shaders.includes(editable.fields.shader)
+        ? editable.shaders
+        : [editable.fields.shader, ...editable.shaders]).map((shader) => el('option', { value: shader, text: shader })),
+    );
+    dom.matShader.value = editable.fields.shader;
+    dom.matColor.value = rgbToHex(editable.fields.r, editable.fields.g, editable.fields.b);
+    dom.matSpecular.value = String(editable.fields.specular);
+    dom.matDiffuseA.value = editable.fields.diffuseA ?? '';
+    dom.matBump.value = editable.fields.bump ?? '';
+    dom.matSpec.value = editable.fields.spec ?? '';
+    refreshTextureList();
+  }
+
+  function clearMaterialPanel() {
+    materialFields = null;
+    dom.matName.textContent = '—';
+    dom.matShader.replaceChildren();
+    dom.matDiffuseA.value = '';
+    dom.matBump.value = '';
+    dom.matSpec.value = '';
+    dom.matMessage.textContent = 'Selecciona una malla con material.';
+  }
+
+  function readMaterialForm() {
+    if (!materialFields) return;
+    materialFields.shader = dom.matShader.value;
+    materialFields.diffuseA = dom.matDiffuseA.value.trim();
+    materialFields.bump = dom.matBump.value.trim();
+    materialFields.spec = dom.matSpec.value.trim();
+    materialFields.specular = Number(dom.matSpecular.value) || 0;
+    const color = hexToRgb(dom.matColor.value);
+    materialFields.r = color.r;
+    materialFields.g = color.g;
+    materialFields.b = color.b;
+  }
+
+  function setMaterialMessage(text, tone = '') {
+    dom.matMessage.textContent = text;
+    dom.matMessage.style.color = tone === 'error' ? 'var(--error)' : '';
+  }
+
+  async function refreshTextureList() {
+    const names = new Set([
+      materialFields?.diffuseA,
+      materialFields?.bump,
+      materialFields?.spec,
+    ].filter(Boolean));
+    if (view.projectId) {
       try {
-        const buffer = await api.textureBuffer(state.moduleId, diffuse.name);
-        const dds = decodeDds(buffer);
-        texture = new THREE.DataTexture(dds.data, dds.width, dds.height, THREE.RGBAFormat);
-        texture.flipY = false;
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.needsUpdate = true;
-      } catch (error) {
-        setMessage(`Textura no disponible: ${errorText(error)}`);
-        texture = null;
+        const data = await api.projectTextures(view.projectId);
+        for (const texture of data.textures) names.add(texture.name);
+      } catch {
+        /* project textures are optional */
       }
     }
+    dom.matTextureList.replaceChildren(
+      ...[...names].sort().map((name) => el('option', { value: name })),
+    );
+  }
 
-    material = new THREE.MeshStandardMaterial({
-      map: texture,
-      color: texture ? 0xffffff : color,
-      roughness: 0.78,
-      metalness: 0.05,
-      side: THREE.DoubleSide,
-      wireframe,
-    });
+  function buildMaterialOverride() {
+    return {
+      schemaVersion: 1,
+      id: materialEditable.material.name,
+      source: {
+        moduleId: state.moduleId,
+        material: materialEditable.material.name,
+        brf: materialEditable.material.brf,
+      },
+      fields: { ...materialFields },
+      editedAt: new Date().toISOString(),
+    };
+  }
+
+  async function saveMaterial() {
+    try {
+      if (!materialEditable) throw new EditError('NO_MATERIAL', 'Selecciona una malla con material.');
+      const projectId = currentProject();
+      readMaterialForm();
+      await api.saveMaterialOverride(projectId, buildMaterialOverride());
+      setMaterialMessage(`Material guardado en ${projectId}`);
+    } catch (error) {
+      setMaterialMessage(`No se pudo guardar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  async function loadMaterial() {
+    try {
+      if (!materialEditable) throw new EditError('NO_MATERIAL', 'Selecciona una malla con material.');
+      const projectId = currentProject();
+      const { override } = await api.materialOverride(projectId, materialEditable.material.name);
+      materialFields = { ...override.fields };
+      populateMaterialPanel({ ...materialEditable, fields: materialFields });
+      await applyMaterialPreview();
+      setMaterialMessage('Material cargado');
+    } catch (error) {
+      setMaterialMessage(`No se pudo cargar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  async function exportMaterial() {
+    try {
+      if (!materialEditable) throw new EditError('NO_MATERIAL', 'Selecciona una malla con material.');
+      const projectId = currentProject();
+      const result = await api.exportMaterialOverride(projectId, materialEditable.material.name, 'materials');
+      setMaterialMessage(`Exportado: ${result.file} (+${result.textures.length} texturas)`);
+    } catch (error) {
+      setMaterialMessage(`No se pudo exportar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  function fileToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  async function importMaterialTexture() {
+    try {
+      if (!materialEditable) throw new EditError('NO_MATERIAL', 'Selecciona una malla con material.');
+      const projectId = currentProject();
+      const file = dom.matFile.files?.[0];
+      if (!file) throw new EditError('NO_FILE', 'Selecciona un archivo .dds.');
+      const buffer = await file.arrayBuffer();
+      const workspaceResult = await api.createWorkspace({
+        label: 'textures',
+        module: state.moduleId,
+        reuse: true,
+      });
+      const imported = await api.importTexture(
+        workspaceResult.workspace.id,
+        file.name,
+        fileToBase64(buffer),
+      );
+      await api.saveProjectTexture(projectId, imported);
+      const role = dom.matRole.value;
+      if (role === 'diffuseA') dom.matDiffuseA.value = imported.name;
+      else if (role === 'bump') dom.matBump.value = imported.name;
+      else dom.matSpec.value = imported.name;
+      readMaterialForm();
+      await refreshTextureList();
+      setMaterialMessage(`Textura importada: ${imported.name} (${imported.width}×${imported.height} ${imported.format})`);
+    } catch (error) {
+      setMaterialMessage(`No se pudo importar: ${errorText(error)}`, 'error');
+    }
   }
 
   function buildMeshObject() {
@@ -609,9 +808,19 @@ export function createViewer(ctx) {
       );
       if (current && data.projects.some((project) => project.id === current)) dom.project.value = current;
       else view.projectId = '';
+      refreshTextureList();
     } catch (error) {
       setMessage(`Proyectos: ${errorText(error)}`, 'error');
     }
+  }
+
+  function setSideTab(tab) {
+    const materialTab = tab === 'material';
+    dom.meshPanel.hidden = materialTab;
+    dom.materialPanel.hidden = !materialTab;
+    dom.tabMesh.classList.toggle('is-active', !materialTab);
+    dom.tabMaterial.classList.toggle('is-active', materialTab);
+    if (materialTab) refreshTextureList();
   }
 
   async function createProject() {
@@ -684,8 +893,7 @@ export function createViewer(ctx) {
 
   function init() {
     let timer = null;
-    dom.search.addEventListener('input', () => {
-      clearTimeout(timer);
+    dom.search.addEventListener('input', () => {      clearTimeout(timer);
       timer = setTimeout(() => {
         view.query = dom.search.value.trim();
         fetchPage(false);
@@ -730,11 +938,28 @@ export function createViewer(ctx) {
     dom.redo.addEventListener('click', redo);
     dom.reset.addEventListener('click', reset);
 
-    dom.project.addEventListener('change', () => { view.projectId = dom.project.value; });
-    dom.projectNew.addEventListener('click', createProject);
+    dom.project.addEventListener('change', () => {
+      view.projectId = dom.project.value;
+      refreshTextureList();
+    });
+    dom.projectNew.addEventListener('click', async () => {
+      await createProject();
+      refreshTextureList();
+    });
     dom.save.addEventListener('click', saveMesh);
     dom.load.addEventListener('click', loadMesh);
     dom.export.addEventListener('click', exportMesh);
+
+    dom.tabMesh.addEventListener('click', () => setSideTab('mesh'));
+    dom.tabMaterial.addEventListener('click', () => setSideTab('material'));
+    dom.matPreview.addEventListener('click', () => applyMaterialPreview());
+    dom.matSave.addEventListener('click', saveMaterial);
+    dom.matLoad.addEventListener('click', loadMaterial);
+    dom.matExport.addEventListener('click', exportMaterial);
+    dom.matImport.addEventListener('click', importMaterialTexture);
+    for (const toggle of [dom.matNormalToggle, dom.matSpecToggle, dom.matAlphaToggle, dom.matDoubleToggle]) {
+      toggle.addEventListener('change', () => applyMaterialPreview());
+    }
 
     dom.canvas.addEventListener('pointerdown', onCanvasPointerDown);
     dom.canvas.addEventListener('pointerup', onCanvasPointerUp);

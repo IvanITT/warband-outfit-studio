@@ -26,6 +26,8 @@ export const PROJECT_SCHEMA_VERSION = 1;
  * @property {{id:string,baseItemId:string,notes:string,overrides:Record<string,unknown>}[]} items
  * @property {{id:string,name:string,slot:string,itemIds:string[]}[]} outfits
  * @property {any[]} meshes
+ * @property {any[]} materials
+ * @property {any[]} textures
  * @property {{lastRunAt:string|null,summary:{errors:number,warnings:number,infos:number}} } validation
  * @property {string} notes
  */
@@ -113,6 +115,8 @@ export class ProjectStore {
       items: [],
       outfits: [],
       meshes: [],
+      materials: [],
+      textures: [],
       validation: { lastRunAt: null, summary: { errors: 0, warnings: 0, infos: 0 } },
       notes: input.notes ?? '',
     };
@@ -132,6 +136,8 @@ export class ProjectStore {
     }
     if (project.id !== id) throw new Error('Project id does not match its file name');
     project.meshes = project.meshes ?? [];
+    project.materials = project.materials ?? [];
+    project.textures = project.textures ?? [];
     return project;
   }
 
@@ -225,6 +231,123 @@ export class ProjectStore {
     }
     await this.save(project);
     return { removed: meshId };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Material & texture overrides (Phase 5)                            */
+  /* ---------------------------------------------------------------- */
+
+  /** @param {string} projectId @param {any} override */
+  async saveMaterialOverride(projectId, override) {
+    if (!override?.id || !override?.source?.material) {
+      throw new Error('Material override must contain id and source.material');
+    }
+    const project = await this.load(projectId);
+    const index = project.materials.findIndex((entry) => entry.id === override.id);
+    if (index >= 0) project.materials[index] = override;
+    else project.materials.push(override);
+    await this.save(project);
+    return override;
+  }
+
+  /** @param {string} projectId */
+  async listMaterialOverrides(projectId) {
+    const project = await this.load(projectId);
+    return project.materials.map((entry) => ({
+      id: entry.id,
+      source: entry.source,
+      editedAt: entry.editedAt,
+      fields: entry.fields,
+    }));
+  }
+
+  /** @param {string} projectId @param {string} materialId */
+  async getMaterialOverride(projectId, materialId) {
+    const project = await this.load(projectId);
+    const override = project.materials.find((entry) => entry.id === materialId);
+    if (!override) {
+      const error = new Error(`Material override '${materialId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'MATERIAL_OVERRIDE_NOT_FOUND';
+      throw error;
+    }
+    return override;
+  }
+
+  /** @param {string} projectId @param {string} materialId @param {string} confirm */
+  async removeMaterialOverride(projectId, materialId, confirm) {
+    if (confirm !== materialId) {
+      const error = new Error('Confirmation required: pass the material id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const project = await this.load(projectId);
+    const before = project.materials.length;
+    project.materials = project.materials.filter((entry) => entry.id !== materialId);
+    if (project.materials.length === before) {
+      const error = new Error(`Material override '${materialId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'MATERIAL_OVERRIDE_NOT_FOUND';
+      throw error;
+    }
+    await this.save(project);
+    return { removed: materialId };
+  }
+
+  /** @param {string} projectId @param {any} texture */
+  async saveTexture(projectId, texture) {
+    if (!texture?.name || !texture?.workspaceId) {
+      throw new Error('Texture must contain name and workspaceId');
+    }
+    const project = await this.load(projectId);
+    const index = project.textures.findIndex((entry) => entry.name.toLowerCase() === texture.name.toLowerCase());
+    if (index >= 0) project.textures[index] = texture;
+    else project.textures.push(texture);
+    await this.save(project);
+    return texture;
+  }
+
+  /** @param {string} projectId */
+  async listTextures(projectId) {
+    const project = await this.load(projectId);
+    return project.textures;
+  }
+
+  /** @param {string} projectId @param {string} name */
+  async getTexture(projectId, name) {
+    const project = await this.load(projectId);
+    const texture = project.textures.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
+    if (!texture) {
+      const error = new Error(`Texture '${name}' is not registered in the project.`);
+      // @ts-expect-error machine-readable
+      error.code = 'PROJECT_TEXTURE_NOT_FOUND';
+      throw error;
+    }
+    return texture;
+  }
+
+  /** @param {string} projectId @param {string} name @param {string} confirm */
+  async removeTexture(projectId, name, confirm) {
+    if (confirm !== name) {
+      const error = new Error('Confirmation required: pass the texture name as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const project = await this.load(projectId);
+    const before = project.textures.length;
+    project.textures = project.textures.filter(
+      (entry) => entry.name.toLowerCase() !== name.toLowerCase(),
+    );
+    if (project.textures.length === before) {
+      const error = new Error(`Texture '${name}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'PROJECT_TEXTURE_NOT_FOUND';
+      throw error;
+    }
+    await this.save(project);
+    return { removed: name };
   }
 
   /**

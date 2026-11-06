@@ -74,6 +74,19 @@ In the Visor tab, below the mesh:
 Rigged meshes and meshes with animation frames block topology operations that
 change the vertex count; transforms are allowed.
 
+## Material editor
+
+In the Visor, switch the side panel to **Material**:
+
+- edit shader, colour (0–255), specular, diffuse/bump/spec texture names;
+- preview toggles: normal, specular, alpha, double-sided;
+- **Importar y asignar** loads a `.dds`, stores it in `workspace/textures/` and
+  registers it in the selected project;
+- **Guardar material**, **Cargar**, **Exportar material** (BRF + referenced
+  textures in `workspace/materials/`).
+
+Note: Warband material colours are **0–255**, not 0–1.
+
 ## Tests
 
 ```bat
@@ -86,7 +99,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 4 result: **96 passing**.
+Expected Phase 5 result: **102 passing**.
 
 ## CLI tools
 
@@ -160,6 +173,8 @@ config/profiles.json  local installation profiles (created on first run)
 | Backup API | `projectStore.listBackups/restoreBackup`, `workspace.listBackups/restoreBackup` |
 | 3D viewer | `frontend/js/viewer.js`, `viewer-controls.js`, `dds.js` |
 | Mesh editor operations | `frontend/js/mesh-edit.js` |
+| Material editor | `frontend/js/viewer.js` (Material panel), `engine/resources/materialOverride.js` |
+| Texture import | `engine.importTexture`, `WorkspaceStore`, `project.textures` |
 | Override persistence/export | `engine/resources/meshOverride.js`, `projectStore.saveMeshOverride` |
 | Viewport data API | `engine.getMeshRenderData`, `engine.getTextureFile` |
 | Vendored Three.js | `frontend/vendor/three/` (0.169.0, MIT) |

@@ -76,6 +76,9 @@ export const api = {
   meshEditable: (module, name) => request(
     `/api/meshes/${encodeURIComponent(name)}/editable?module=${encodeURIComponent(module)}`,
   ),
+  materialEditable: (module, name) => request(
+    `/api/materials/${encodeURIComponent(name)}/editable?module=${encodeURIComponent(module)}`,
+  ),
   textureBuffer: async (module, name) => {
     const response = await fetch(
       `/api/textures/${encodeURIComponent(name)}/raw?module=${encodeURIComponent(module)}`,
@@ -112,10 +115,42 @@ export const api = {
     { method: 'POST', body: { workspaceLabel } },
   ),
 
+  /* project material overrides */
+  materialOverrides: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/materials`),
+  materialOverride: (projectId, materialId) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/materials/${encodeURIComponent(materialId)}`,
+  ),
+  saveMaterialOverride: (projectId, override) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/materials`,
+    { method: 'POST', body: { override } },
+  ),
+  removeMaterialOverride: (projectId, materialId, confirm) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/materials/${encodeURIComponent(materialId)}?confirm=${encodeURIComponent(confirm)}`,
+    { method: 'DELETE' },
+  ),
+  exportMaterialOverride: (projectId, materialId, workspaceLabel) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/materials/${encodeURIComponent(materialId)}/export`,
+    { method: 'POST', body: { workspaceLabel } },
+  ),
+
+  /* project textures */
+  projectTextures: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/textures`),
+  saveProjectTexture: (projectId, texture) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/textures`,
+    { method: 'POST', body: { texture } },
+  ),
+  removeProjectTexture: (projectId, name, confirm) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/textures/${encodeURIComponent(name)}?confirm=${encodeURIComponent(confirm)}`,
+    { method: 'DELETE' },
+  ),
+  importTexture: (workspaceId, fileName, base64) => request(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/textures`,
+    { method: 'POST', body: { fileName, data: base64 } },
+  ),
+
   /* workspaces */
   workspaces: () => request('/api/workspaces'),
-  createWorkspace: (body) => request('/api/workspaces', { method: 'POST', body }),
-  removeWorkspace: (id, confirm) => request(
+  createWorkspace: (body) => request('/api/workspaces', { method: 'POST', body }),  removeWorkspace: (id, confirm) => request(
     `/api/workspaces/${encodeURIComponent(id)}?confirm=${encodeURIComponent(confirm)}`,
     { method: 'DELETE' },
   ),

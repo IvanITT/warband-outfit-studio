@@ -254,3 +254,40 @@ the asset. This is safer than silently dropping data.
 
 **Consequences:** Phase 5 (weights) can lift the rigging restriction; frame
 topology stays blocked until frame editing exists.
+
+
+## ADR-027 - Material colours are raw 0-255 values
+
+**Decision:** the material editor treats `r/g/b` as 0-255 and preserves
+`specular` as a raw float.
+
+**Rationale:** VERIFIED on the installed assets: `mail_shirt_a` stores
+`r=g=b=15` and `specular=16`, while other materials use 0 or 228. A 0-1
+assumption would corrupt every material with a non-zero colour.
+
+**Consequences:** the colour picker converts 0-255 <-> hex; validation allows
+0-255; preview divides by 255 for Three.js.
+
+## ADR-028 - Imported textures live in a workspace and a project registry
+
+**Decision:** DDS imports are written to `workspace/textures/Textures/` and
+registered in `project.textures[]`; material overrides reference names.
+
+**Rationale:** the engine must never depend on arbitrary user paths after
+import, and exports need deterministic sources. The project registry records
+the hash and dimensions.
+
+**Consequences:** deleting a project does not garbage-collect the shared
+workspace yet; Phase 9 can add retention.
+
+## ADR-029 - Approximate normal/spec preview
+
+**Decision:** the viewport previews diffuse as `map`, normal as `normalMap`
+and the specular map as a `metalnessMap` with a toggle.
+
+**Rationale:** Warband shaders are not available in Three.js; a faithful
+reimplementation is out of scope. The approximation is useful for judging
+texture orientation and normal-map presence, and is explicitly labelled.
+
+**Consequences:** specular intensity is not physically accurate; Phase 6+
+can add a custom shader if the preview becomes a blocker.

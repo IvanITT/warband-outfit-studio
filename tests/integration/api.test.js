@@ -80,6 +80,13 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   assert.equal(editable.arrays.vertexPosition.count, 782);
   assert.equal(editable.source.mesh, 'mail_shirt_a');
 
+  const materialResponse = await fetch(`${base}/api/materials/mail_shirt_a/editable?module=Native`);
+  const material = await materialResponse.json();
+  assert.equal(material.ok, true);
+  assert.ok(material.fields.shader);
+  assert.ok(material.shaders.length > 0);
+  assert.equal(material.textures.diffuseA.file.exists, true);
+
   const textureResponse = await fetch(`${base}/api/textures/mail_shirt_a/raw?module=Native`);
   assert.equal(textureResponse.status, 200);
   assert.equal(textureResponse.headers.get('content-type'), 'application/octet-stream');

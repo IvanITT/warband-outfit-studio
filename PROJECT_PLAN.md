@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 4 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 5**
+> Current phase: **Phase 5 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 6**
 
 ---
 
@@ -285,11 +285,17 @@ Completed:
 
 **Exit met:** a real `mail_shirt_a` edit changes exactly one position + its frame position, preserves frames/counts, round-trips through the BRF writer, and leaves the source hash unchanged.
 
-### Phase 5 — Texture & Material System
+### Phase 5 — Texture & Material System — **COMPLETE (2026-11-06)**
 
-- DDS decoding/preview, material creation/editing, shader selection, alpha/mipmap awareness.
-- Texture assignment and export.
-- **Exit:** new material + texture visible in viewport and exportable.
+Completed:
+
+- Material panel in the Visor: shader, colour (0–255), specular, diffuse/bump/spec names, normal/spec/alpha/double-sided toggles.
+- DDS import into `workspace/textures/` with header validation and project registry.
+- Material overrides in projects; save/load/delete and export merging the BRF + copying referenced textures.
+- Preview uses diffuse `map`, normal `normalMap`, specular as a metalness approximation.
+- 102 automated tests.
+
+**Exit met:** real `mail_shirt_a` material edited (r/g/b 64/128/192, specular 2.5), exported with 3 textures; source BRF unchanged; preview and screenshot verified.
 
 ### Phase 6 — Outfit & Armor Editor
 
@@ -324,9 +330,9 @@ Completed:
 
 ## 9. Current Phase
 
-**Phase 4 is COMPLETE.** All Phase 4 deliverables are implemented, tested and documented.
+**Phase 5 is COMPLETE.** All Phase 5 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 5.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 6.
 
 ### Roadmap reconciliation (accepted)
 
@@ -343,6 +349,7 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 - **Phase 2** targeted the **unfinished** manager work: profiles, workspace lifecycle, asset index UI, backup catalogue/restore. **Done.**
 - **Phase 3** delivered the local viewport: vendored Three.js, render data, DDS preview, camera and toggles. **Done.**
 - **Phase 4** delivered mesh editing: selection, transforms, topology, history, project overrides and workspace export. **Done.**
+- **Phase 5** delivered materials/textures: material editing, DDS import, preview, overrides and export. **Done.**
 - No earlier deliverable was re-implemented.
 
 ---
@@ -489,35 +496,52 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 
 ---
 
-## 11. Pending Work
+### Phase 5 (2026-11-06)
 
-### Phase 5 (proposed, not authorized)
+**Material editor**
 
-1. **Texture pipeline** — DDS decode beyond the viewport: list pages, alpha/mip awareness, texture import into a workspace and material assignment.
-2. **Material model** — create/edit materials (shader, diffuse/bump/spec/enviro, colour/specular/flags) with the BRF writer.
-3. **Material preview** — normal/spec channels in the viewport (normal map approximation), alpha blending modes.
-4. **Shader awareness** — select from shaders present in loaded BRFs; warn on unknown shaders.
-5. **Texture assignment** — attach a texture to a material/mesh, validate existence and dimensions.
-6. **Overrides** — project texture/material overrides referencing base assets; export merged BRF copies.
-7. **Tests/docs** — DDS variants, material round-trip, preview checklist.
+- `getMaterialEditable`: fields, shader list, texture details, meshes using the material.
+- Visor side panel: shader (139 in Native), colour 0–255, specular, diffuse/bump/spec, toggles, import DDS, preview, save/load/export.
+- Material overrides in `project.materials[]`; imported textures in `project.textures[]`.
+- `exportMaterialOverride`: merge fields, serialize BRF, copy referenced textures to `workspace/materials/Textures/`.
+- Texture import validates the DDS header and writes to `workspace/textures/`.
 
-### Explicitly out of Phase 5
+**Verification**
 
-Outfit composition, item editing, deployment.
-
-### Decisions requested with this approval
-
-1. **Texture storage**: copy imported textures into `workspace/` (proposed) vs reference arbitrary local paths.
-2. **DDS scope**: DXT1/3/5 + BC1–3 first (proposed) vs add BC4–7 and mipmaps now.
-3. **Normal preview**: tangent-space approximation with a toggle (proposed) vs physically accurate without tangents (impossible for layout 2).
-
-### Backlog after Phase 5
-
-- Phase 6: outfit editor; Phase 7: item editor; Phase 8: exporter; Phase 9: hardening; Phase 10: packaging.
+- 102/102 tests in ~6.3 s (material validation + real material edit/export + texture import + API).
+- Real `mail_shirt_a`: fields changed to r/g/b 64/128/192, specular 2.5; 3 textures copied; source hash unchanged.
+- UI verified: material panel populated, preview updated, override saved, export produced BRF + 3 textures; screenshot captured.
 
 ---
 
-## 12. Known Issues (after Phase 4)
+## 11. Pending Work
+
+### Phase 6 (proposed, not authorized)
+
+1. **Character bodies** — load `skins.txt` + skeleton/body meshes from the game; male/female body presets.
+2. **Wearable composition** — equip head/body/hands/feet/cape items by slot, multiple layers, replacement.
+3. **Transforms/attachments** — place accessories, inspect clipping with a simple overlap check.
+4. **Outfit projects** — outfit records referencing items/meshes/materials; save/load; preview presets.
+5. **Starter presets** — build outfits from a selected item set; export a preview snapshot.
+6. **Tests/docs** — composition invariants, outfit loading, slot validation.
+
+### Explicitly out of Phase 6
+
+Item editing, deployment, animation/pose editing beyond the bind pose.
+
+### Decisions requested with this approval
+
+1. **Body source**: use Native body/skeleton meshes from BRFs (proposed) vs a neutral mannequin.
+2. **Clipping check**: simple bounding-box/vertex overlap (proposed) vs no automated check.
+3. **Outfit storage**: project `outfits[]` referencing item ids (proposed) vs duplicating item records.
+
+### Backlog after Phase 6
+
+- Phase 7: item editor; Phase 8: exporter; Phase 9: hardening; Phase 10: packaging.
+
+---
+
+## 12. Known Issues (after Phase 5)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
@@ -525,11 +549,13 @@ Outfit composition, item editing, deployment.
 | 2 | Dirty animations and collision bodies cannot be written | Medium | Preserved verbatim; writer throws if marked dirty |
 | 3 | Adding/removing BRF objects (section count changes) is not exposed | Medium | Phase 8 (builder) |
 | 4 | Viewport renders the bind pose only (no skinning/skeleton pose) | Medium | Phase 6 |
-| 5 | Only the diffuse map is previewed (no normal/spec) | Medium | Phase 5 |
-| 6 | Mesh topology changes are blocked on rigged/framed meshes | Medium | Phase 5 (weights) |
-| 7 | Extrude is per-face; adjacent faces keep internal walls | Low | Improve in Phase 4 follow-up |
+| 5 | Specular preview is a metalness approximation, not the game shader | Medium | Documented (ADR-029) |
+| 6 | Mesh topology changes are blocked on rigged/framed meshes | Medium | Weights in a later phase |
+| 7 | Extrude is per-face; adjacent faces keep internal walls | Low | Improve in a Phase 4 follow-up |
 | 8 | Overrides store a full geometry snapshot, not a delta | Low | Optimize if projects grow |
-| 9 | No UV or bone-weight editing yet | Medium | Phase 5 |
+| 9 | No UV or bone-weight editing yet | Medium | Future phase |
+| 10 | No material creation from scratch (overrides existing only) | Medium | Future phase |
+| 11 | No texture editing (paint/resize/convert); import only | Medium | Future phase |
 | 10 | UV V flip is LIKELY (OpenBRF convention); toggle available | Low | Controlled experiment |
 | 11 | Geometry is re-read on every viewport selection | Low | LRU if it hurts |
 | 12 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Controlled experiment |
@@ -559,7 +585,10 @@ Outfit composition, item editing, deployment.
 | Mesh overrides | Full geometry snapshot per edited mesh | Delta format if projects grow |
 | Extrude | Per-face implementation (internal walls on adjacent faces) | Region extrude in a Phase 4 follow-up |
 | Selection | Vertex + face only (approved); no edge loops | Revisit with UV editing |
-| Rigged/framed meshes | Count-changing topology blocked | Phase 5 weights |
+| Rigged/framed meshes | Count-changing topology blocked | Future weights phase |
+| Material preview | Specular approximated via metalnessMap | Custom shader if needed |
+| Texture storage | Imported textures shared in `workspace/textures`; no GC | Phase 9 retention |
+| Material scope | Only existing materials can be overridden | Future creation flow |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
 | Backups | No pruning/retention policy (ADR-020) | Phase 9 |
@@ -599,6 +628,9 @@ Outfit composition, item editing, deployment.
 | ADR-024 | Edit shared positions via vertexPosition indirection | Accepted (Phase 4) |
 | ADR-025 | Mesh edits are project overrides; export writes workspace copies | Accepted (Phase 4) |
 | ADR-026 | Block count-changing topology on rigged/framed meshes | Accepted (Phase 4) |
+| ADR-027 | Material colours are raw 0-255 values | Accepted (Phase 5) |
+| ADR-028 | Imported textures live in a workspace + project registry | Accepted (Phase 5) |
+| ADR-029 | Normal/spec preview is an approximation | Accepted (Phase 5) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -634,12 +666,14 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-22 | DDS textures are top-down rows; UV V needs the OpenBRF flip for GL display | real texture renders correctly with `v'=1-v` | **LIKELY** | viewport default + toggle |
 | F-23 | BRF rigging pairs reference **position** indices; frames store positions per position and normals per vertex | `mail_shirt_a`: 622 positions, 782 verts, 2 frames | **VERIFIED** | edit model + override export |
 | F-24 | Editing a shared position must move it once, not once per UV seam | duplicate vertex indices share position indices | **VERIFIED** | dedupe by `vertexPosition` in transforms |
+| F-25 | BRF material `r/g/b` are 0-255; `specular` is a raw float | `mail_shirt_a` = 15/15/15, specular 16; range 0-228 | **VERIFIED** | material editor/validator |
+| F-26 | Material `spec` is optional; a non-empty value implies presence | `LoadStringMaybe` + real materials | **VERIFIED** | editor sets `specPresent` |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **96 / 96 passing** (~4.8 s), zero dependencies.
+**Command:** `npm test` - **102 / 102 passing** (~6.3 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -661,6 +695,8 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `unit/ddsDecode` | 4 | DXT1 4-colour/transparent, DXT5 alpha, bad magic |
 | `unit/meshEdit` | 13 | transforms, snapping, topology, guards, overrides, validation |
 | `integration/meshOverride` | 2 | real edit/override/export, frame preservation, invalid override |
+| `unit/materialOverride` | 3 | validation, texture references |
+| `integration/materials` | 3 | real material edit/export, texture import, invalid override |
 | `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
 | `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, CSP, static, 404 |
 
@@ -671,6 +707,17 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 5 completed
+
+- **Material editor**: fields, shaders, 0-255 colours, specular, texture names, preview toggles.
+- **DDS import**: validated into `workspace/textures/` and registered in `project.textures[]`.
+- **Overrides**: project materials, save/load/delete, export merged BRF + copied textures.
+- **Preview**: diffuse/normal maps, specular metalness approximation, alpha/double-side.
+- **Tests**: 102 passing (material unit + real export/import integration).
+- Docs: `docs/architecture/MATERIALS.md`, data model/architecture/ADR-027..029.
+- Milestone tag: `phase-5-materials`.
+
 
 ### 2026-11-06 - Phase 4 completed
 
@@ -742,28 +789,27 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 5 — Texture & Material System** (proposed; requires explicit approval).
+**Phase 6 — Outfit & Armor Editor** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Texture pipeline | DDS variants, pages, alpha/mip awareness | real textures decode and preview |
-| Material model | create/edit shader, maps, colour, flags | material round-trips through the BRF writer |
-| Material preview | normal/spec approximation + alpha | visually verifiable on armour |
-| Shader awareness | shader list + unknown warnings | no silent fallbacks |
-| Texture assignment | attach/validate textures | missing files are caught before export |
-| Overrides | project material/texture overrides | export merges into workspace |
-| Tests/docs | DDS variants + material round-trip | green and documented |
+| Character bodies | load body/skeleton meshes + `skins.txt` | a human body renders in the viewport |
+| Slot composition | equip head/body/hands/feet/cape items | a full outfit renders from selected items |
+| Transforms/attachments | position accessories; basic clipping check | obvious clipping is reported |
+| Outfit projects | `outfits[]` referencing items/meshes | save/load reproduces the outfit |
+| Presets | starter outfit from a selected item set | preset loads and validates |
+| Tests/docs | slot invariants, outfit loading, clipping | green and documented |
 
-### Explicitly out of Phase 5
+### Explicitly out of Phase 6
 
-Outfit composition, item editing, deployment.
+Item editing, deployment, skeleton posing beyond the bind pose.
 
 ### Decisions requested with this approval
 
-1. **Texture storage**: copy imported textures into `workspace/` (proposed) vs reference arbitrary local paths.
-2. **DDS scope**: DXT1/3/5 + BC1–3 first (proposed) vs add BC4–7 and mipmaps now.
-3. **Normal preview**: tangent-space approximation with a toggle (proposed) vs skip normals until tangents are editable.
+1. **Body source**: use Native body/skeleton meshes from BRFs (proposed) vs a neutral mannequin.
+2. **Clipping check**: simple bounding-box/vertex overlap (proposed) vs no automated check.
+3. **Outfit storage**: project `outfits[]` referencing item ids (proposed) vs duplicating item records.
 
 **Waiting for explicit user approval.**

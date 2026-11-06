@@ -19,8 +19,11 @@ import { parseBrf, serializeBrf, updateMesh } from './resources/brf.js';
 import { readMeshGeometry } from './resources/geometry.js';
 import { resolveTextureDetails } from './resources/textureDetails.js';
 import { applyOverride, buildGeometryFromOverride } from './resources/meshOverride.js';
+import {
+  applyMaterialOverrideToBrf, referencedTextures, validateMaterialOverride,
+} from './resources/materialOverride.js';
+import { parseDds, parseDdsFile } from './textures/dds.js';
 import { WorkspaceStore } from './resources/workspace.js';
-import { parseDdsFile } from './textures/dds.js';
 import { resolveItemChain, validateItems } from './validation/validate.js';
 import { ProjectStore } from './projects/projectStore.js';
 import { resolveCaseInsensitive } from './util/fsx.js';
@@ -780,6 +783,206 @@ export class WarbandEngine {
       vertices: mesh.vertexCount,
       faces: mesh.faceCount,
     };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Materials & textures (Phase 5)                                    */
+  /* ---------------------------------------------------------------- */
+
+  /** @param {string} moduleId @param {string} name */
+  async getMaterialEditable(moduleId, name) {
+    const data = await this.getModuleData(moduleId);
+    const entries = data.brfIndex.resolveMaterial(name);
+    if (entries.length === 0) {
+      const error = new Error(`Material '${name}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'MATERIAL_NOT_FOUND';
+      throw error;
+    }
+    const material = entries[0];
+    const context = { brfIndex: data.brfIndex, textures: data.textures, ddsCache: data.ddsCache };
+    const textures = {};
+    for (const role of ['diffuseA', 'diffuseB', 'bump', 'enviro', 'spec']) {
+      const value = material[role];
+      if (value && value !== 'none') textures[role] = await resolveTextureDetails(context, value);
+    }
+    const meshes = [];
+    for (const list of data.brfIndex.meshes.values()) {
+      for (const mesh of list) {
+        if (mesh.material.toLowerCase() === name.toLowerCase()) meshes.push(summarizeMeshEntry(mesh));
+      }
+    }
+    return {
+      material: {
+        name: material.name,
+        brf: material.brf,
+        sources: [...new Set(entries.map((entry) => entry.brf))],
+      },
+      fields: {
+        shader: material.shader,
+        diffuseA: material.diffuseA,
+        diffuseB: material.diffuseB,
+        bump: material.bump,
+        enviro: material.enviro,
+        spec: material.spec,
+        specPresent: material.specPresent,
+        specular: material.specular,
+        r: material.r,
+        g: material.g,
+        b: material.b,
+        flags: material.flags,
+      },
+      textures,
+      shaders: [...data.brfIndex.shaders.keys()].sort(),
+      meshes: meshes.slice(0, 200),
+    };
+  }
+
+  /** @param {string} projectId @param {any} override */
+  async saveMaterialOverride(projectId, override) {
+    const issues = validateMaterialOverride(override);
+    if (issues.length > 0) {
+      const error = new Error(`Material override is invalid: ${issues.join('; ')}`);
+      // @ts-expect-error machine-readable
+      error.code = 'INVALID_MATERIAL_OVERRIDE';
+      throw error;
+    }
+    return this.projects.saveMaterialOverride(projectId, override);
+  }
+
+  /** @param {string} projectId */
+  async listMaterialOverrides(projectId) {
+    return this.projects.listMaterialOverrides(projectId);
+  }
+
+  /** @param {string} projectId @param {string} materialId */
+  async getMaterialOverride(projectId, materialId) {
+    return this.projects.getMaterialOverride(projectId, materialId);
+  }
+
+  /** @param {string} projectId @param {string} materialId @param {string} confirm */
+  async removeMaterialOverride(projectId, materialId, confirm) {
+    return this.projects.removeMaterialOverride(projectId, materialId, confirm);
+  }
+
+  /**
+   * @param {string} workspaceId
+   * @param {string} fileName
+   * @param {Buffer} buffer
+   */
+  async importTexture(workspaceId, fileName, buffer) {
+    const installation = this.requireInstallation();
+    const base = path.basename(fileName).replace(/[^A-Za-z0-9._-]+/g, '_');
+    const name = base.toLowerCase().endsWith('.dds') ? base : `${base}.dds`;
+    let info;
+    try {
+      info = parseDds(buffer, { file: name });
+    } catch (error) {
+      const wrapped = new Error(`Invalid DDS file: ${error instanceof Error ? error.message : String(error)}`);
+      // @ts-expect-error machine-readable
+      wrapped.code = 'INVALID_DDS';
+      throw wrapped;
+    }
+    const result = await this.workspaces.writeFile(workspaceId, `Textures/${name}`, buffer);
+    return {
+      name,
+      workspaceId,
+      path: `Textures/${name}`,
+      width: info.width,
+      height: info.height,
+      format: info.format,
+      mipmaps: info.mipmaps,
+      sha256: result.sha256,
+      bytes: result.bytes,
+      source: 'imported',
+      installationId: installation.id,
+    };
+  }
+
+  /**
+   * @param {string} projectId
+   * @param {string} materialId
+   * @param {{ workspaceLabel?: string }} [options]
+   */
+  async exportMaterialOverride(projectId, materialId, options = {}) {
+    const installation = this.requireInstallation();
+    const project = await this.projects.load(projectId);
+    const override = project.materials.find((entry) => entry.id === materialId);
+    if (!override) {
+      const error = new Error(`Material override '${materialId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'MATERIAL_OVERRIDE_NOT_FOUND';
+      throw error;
+    }
+
+    const sourcePath = path.resolve(override.source.brf);
+    const root = path.resolve(installation.rootPath);
+    if (sourcePath !== root && !sourcePath.startsWith(root + path.sep)) {
+      const error = new Error('Override source BRF must be inside the Warband installation.');
+      // @ts-expect-error machine-readable
+      error.code = 'PATH_OUTSIDE_INSTALLATION';
+      throw error;
+    }
+
+    const source = await readFile(sourcePath);
+    const { buffer, material } = applyMaterialOverrideToBrf(source, override, { file: sourcePath });
+    const workspace = await this.createWorkspace(options.workspaceLabel ?? 'materials', {
+      reuse: true,
+      moduleId: override.source.moduleId,
+    });
+    const brfName = `${material.name.replace(/[^A-Za-z0-9._-]+/g, '_')}.brf`;
+    const brfResult = await this.workspaces.writeFile(workspace.id, brfName, buffer);
+
+    const textureResults = [];
+    const data = await this.getModuleData(override.source.moduleId);
+    for (const textureName of referencedTextures(override.fields)) {
+      const normalized = textureName.toLowerCase().endsWith('.dds') ? textureName : `${textureName}.dds`;
+      const projectTexture = project.textures.find(
+        (entry) => entry.name.toLowerCase() === normalized.toLowerCase(),
+      );
+      let textureBuffer;
+      let sourceKind;
+      if (projectTexture) {
+        textureBuffer = await this.workspaces.readFile(projectTexture.workspaceId, projectTexture.path);
+        sourceKind = 'project';
+      } else {
+        const hit = data.textures.resolve(textureName);
+        if (!hit.exists || !hit.filePath) {
+          const error = new Error(`Texture '${textureName}' was not found in the project or the game.`);
+          // @ts-expect-error machine-readable
+          error.code = 'MISSING_TEXTURE';
+          throw error;
+        }
+        textureBuffer = await readFile(hit.filePath);
+        sourceKind = 'game';
+      }
+      const written = await this.workspaces.writeFile(workspace.id, `Textures/${normalized}`, textureBuffer);
+      textureResults.push({ name: normalized, path: written.file, source: sourceKind, sha256: written.sha256 });
+    }
+
+    return {
+      workspaceId: workspace.id,
+      material: material.name,
+      sourceBrf: sourcePath,
+      file: brfResult.file,
+      bytes: buffer.length,
+      textures: textureResults,
+    };
+  }
+
+  /** @param {string} projectId @param {any} texture */
+  async saveProjectTexture(projectId, texture) {
+    return this.projects.saveTexture(projectId, texture);
+  }
+
+  /** @param {string} projectId */
+  async listProjectTextures(projectId) {
+    return this.projects.listTextures(projectId);
+  }
+
+  /** @param {string} projectId @param {string} name @param {string} confirm */
+  async removeProjectTexture(projectId, name, confirm) {
+    return this.projects.removeTexture(projectId, name, confirm);
   }
 
   /* ---------------------------------------------------------------- */

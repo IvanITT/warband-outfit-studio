@@ -487,3 +487,69 @@ New suites:
 ### Milestone
 
 Tag `phase-4-mesh-editor`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 5 — Texture & Material System
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Edit real BRF materials, preview them with diffuse/normal/specular maps, import DDS textures safely, and export material overrides plus their textures into a workspace.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Material model | fields, shader list, texture details and mesh users from the engine |
+| Editor | Visor **Material** tab: shader, colour 0–255, specular, diffuse/bump/spec, toggles |
+| Preview | diffuse `map`, normal `normalMap`, specular as metalness approximation, alpha/double-side |
+| DDS import | validate header, write to `workspace/textures/`, register in `project.textures[]` |
+| Overrides | project `materials[]`; save/load/delete; validation |
+| Export | merge material into the source BRF, copy referenced textures to `workspace/materials/` |
+| API | material editable, project materials/textures, texture import, material export |
+
+### Tests
+
+`npm test` → **102 / 102 passing** (~6.3 s).
+
+New suites:
+
+- `unit/materialOverride` (3): validation, colour range, texture references.
+- `integration/materials` (3): real material edit/export, DDS import/registry, invalid override.
+- `integration/api` extended: material editable endpoint.
+
+### Verified against real data
+
+- `mail_shirt_a`: shader `specular_shader_skin_bump_high`, maps diffuse/normal/spec, colour 15/15/15, specular 16.
+- Edited to r/g/b 64/128/192 and specular 2.5; export produced `mail_shirt_a.brf` + 3 textures.
+- Reparsed BRF matches the override; source SHA-256 unchanged.
+- UI flow verified: material panel populated, preview refreshed, override saved, export succeeded; screenshot captured.
+
+### Findings
+
+1. **Material colour scale is 0–255** (not 0–1); `specular` is a raw float (F-25). The first implementation assumed 0–1 and was corrected before completion.
+2. **`spec` is optional** in the BRF; a non-empty value implies presence (F-26).
+3. **Specular preview is an approximation** (metalnessMap) because the Warband shader graph is unavailable (ADR-029).
+
+### Known limitations
+
+- No material creation from scratch (overrides target existing materials).
+- No texture painting/resizing/conversion; import/reference only.
+- DXT1/3/5 + BC1–3, first mip only.
+- Shader parameters/options are not edited, only the shader name.
+- Imported textures are not garbage-collected with projects.
+- Specular/alpha preview is approximate.
+
+### Documentation updated
+
+- New `docs/architecture/MATERIALS.md` (with screenshot).
+- `PROJECT_PLAN.md` (Phase 5 complete, Phase 6 proposed, ADR-027…029, findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`, `docs/development/{DECISIONS,SETUP}.md`,
+  `README.md`.
+
+### Milestone
+
+Tag `phase-5-materials`. No game files were modified. `npm test` green.

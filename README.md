@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 4 (current): mesh editor — vertex/face selection, numeric transforms, topology operations, project overrides, workspace export.**
+- **Phase 5 (current): texture & material system — material editing, DDS import, normal/spec preview, material overrides and workspace export.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -45,7 +45,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-96 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+102 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -78,6 +78,7 @@ backups/      automatic project backups
 - [Game & module manager](docs/architecture/MANAGER.md)
 - [3D viewport](docs/architecture/VIEWPORT.md)
 - [Mesh editor](docs/architecture/MESH-EDITOR.md)
+- [Textures & materials](docs/architecture/MATERIALS.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF format](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
@@ -93,4 +94,4 @@ backups/      automatic project backups
 
 ## Status
 
-Phase 4 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 5 scope.
+Phase 5 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 6 scope.

@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.5.0',
-        phase: 4,
+        version: '0.6.0',
+        phase: 5,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -195,7 +195,10 @@ export function createApi(engine) {
         error.code = 'BAD_REQUEST';
         throw error;
       }
-      const workspace = await engine.createWorkspace(String(body.label), { moduleId: body.module });
+      const workspace = await engine.createWorkspace(String(body.label), {
+        moduleId: body.module,
+        reuse: Boolean(body.reuse),
+      });
       return { ok: true, workspace };
     }
 
@@ -244,6 +247,98 @@ export function createApi(engine) {
 
     if (method === 'GET' && urlPath === '/api/projects') {
       return { ok: true, projects: await engine.projects.list() };
+    }
+
+    const materialEditable = urlPath.match(/^\/api\/materials\/(.+)\/editable$/);
+    if (method === 'GET' && materialEditable) {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.getMaterialEditable(moduleId, decodeURIComponent(materialEditable[1]));
+      return { ok: true, module: moduleId, ...result };
+    }
+
+    /* ---- project material & texture overrides ---- */
+
+    const projectMaterials = urlPath.match(/^\/api\/projects\/([^/]+)\/materials$/);
+    if (projectMaterials) {
+      const projectId = decodeURIComponent(projectMaterials[1]);
+      if (method === 'GET') {
+        return { ok: true, materials: await engine.listMaterialOverrides(projectId) };
+      }
+      if (method === 'POST') {
+        if (!body?.override) {
+          const error = new Error('Body must contain { override }');
+          // @ts-expect-error machine-readable
+          error.code = 'BAD_REQUEST';
+          throw error;
+        }
+        const override = await engine.saveMaterialOverride(projectId, body.override);
+        return { ok: true, override };
+      }
+    }
+
+    const projectMaterial = urlPath.match(/^\/api\/projects\/([^/]+)\/materials\/([^/]+)$/);
+    if (projectMaterial) {
+      const projectId = decodeURIComponent(projectMaterial[1]);
+      const materialId = decodeURIComponent(projectMaterial[2]);
+      if (method === 'GET') {
+        return { ok: true, override: await engine.getMaterialOverride(projectId, materialId) };
+      }
+      if (method === 'DELETE') {
+        const result = await engine.removeMaterialOverride(projectId, materialId, query.get('confirm') ?? '');
+        return { ok: true, ...result };
+      }
+    }
+
+    const projectMaterialExport = urlPath.match(/^\/api\/projects\/([^/]+)\/materials\/([^/]+)\/export$/);
+    if (method === 'POST' && projectMaterialExport) {
+      const projectId = decodeURIComponent(projectMaterialExport[1]);
+      const materialId = decodeURIComponent(projectMaterialExport[2]);
+      const result = await engine.exportMaterialOverride(projectId, materialId, {
+        workspaceLabel: body?.workspaceLabel,
+      });
+      return { ok: true, ...result };
+    }
+
+    const projectTextures = urlPath.match(/^\/api\/projects\/([^/]+)\/textures$/);
+    if (projectTextures) {
+      const projectId = decodeURIComponent(projectTextures[1]);
+      if (method === 'GET') {
+        return { ok: true, textures: await engine.listProjectTextures(projectId) };
+      }
+      if (method === 'POST') {
+        if (!body?.texture) {
+          const error = new Error('Body must contain { texture }');
+          // @ts-expect-error machine-readable
+          error.code = 'BAD_REQUEST';
+          throw error;
+        }
+        return { ok: true, texture: await engine.saveProjectTexture(projectId, body.texture) };
+      }
+    }
+
+    const projectTexture = urlPath.match(/^\/api\/projects\/([^/]+)\/textures\/([^/]+)$/);
+    if (method === 'DELETE' && projectTexture) {
+      const projectId = decodeURIComponent(projectTexture[1]);
+      const name = decodeURIComponent(projectTexture[2]);
+      const result = await engine.removeProjectTexture(projectId, name, query.get('confirm') ?? '');
+      return { ok: true, ...result };
+    }
+
+    const workspaceTexture = urlPath.match(/^\/api\/workspaces\/([^/]+)\/textures$/);
+    if (method === 'POST' && workspaceTexture) {
+      if (!body?.fileName || !body?.data) {
+        const error = new Error('Body must contain { fileName, data } (base64)');
+        // @ts-expect-error machine-readable
+        error.code = 'BAD_REQUEST';
+        throw error;
+      }
+      const buffer = Buffer.from(String(body.data), 'base64');
+      const result = await engine.importTexture(
+        decodeURIComponent(workspaceTexture[1]),
+        String(body.fileName),
+        buffer,
+      );
+      return { ok: true, ...result };
     }
 
     /* ---- project mesh overrides ---- */
