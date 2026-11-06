@@ -71,6 +71,41 @@ Invariants:
 - Serialization with no re-render option reproduces the original file byte-for-byte (tested on all three modules).
 - `capabilities` is never converted to `Number` (precision loss above 2^53).
 
+### 2.1 Item editor overrides
+
+`ItemEditable` adds decoded symbols to an `ItemRecord`:
+
+```
+ItemEditable
+  item          ItemRecord
+  flags         { value, hex, type, attachment, flags[], unknownHex }
+  capabilities  { value, hex, carry, shoot, flags[], unknownHex }
+  schema        types[], attachment[], flags[], carry[], shoot[], capabilities[]
+```
+
+Project `items[]` override:
+
+```
+ItemOverride
+  schemaVersion 1
+  id            item id (must equal baseItemId for edits)
+  baseItemId    existing id | null (new item)
+  mode          edit | create
+  moduleId
+  fields        { name, plural, flags, capabilities, value, modifierBits,
+                  weight, abundance, headArmor, bodyArmor, legArmor,
+                  difficulty, hitPoints, speedRating, missileSpeed,
+                  weaponLength, maxAmmo, thrustDamage, swingDamage }
+  meshes[]      { name, modifierBits }
+  factions[]    preserved/optional
+  triggers[]    preserved/optional
+  notes, updatedAt
+```
+
+Export merges overrides into the module's document and writes
+`workspace/item-edits/item_kinds1.txt`; new records are appended, existing
+records keep their position. Untouched records reuse their raw lines.
+
 ## 3. Resources
 
 ```
@@ -283,7 +318,8 @@ WarbandProject
   createdAt, updatedAt
   target          { installationId, installationPath, moduleId }
   assets[]        { id, kind: mesh|material|texture|item, name, notes }
-  items[]         { id, baseItemId, notes, overrides }
+  items[]         { id, baseItemId, mode, moduleId, fields, meshes, factions,
+                    triggers, notes, updatedAt }
   outfits[]       { id, name, moduleId, bodySkin, entries, transforms, updatedAt }
   validation      { lastRunAt, summary }
   notes
@@ -363,7 +399,7 @@ Restore inputs: the backup path plus a `confirm` value equal to the entity id.
 The current state is backed up before the restore, making the operation
 reversible. Workspace restores verify SHA-256 first.
 
-## 10. Deliberate omissions (updated after Phase 2)
+## 10. Deliberate omissions (updated after Phase 7)
 
 | Concept | Status | Phase |
 |---|---|---|
@@ -375,9 +411,11 @@ reversible. Workspace restores verify SHA-256 first.
 | Workspace lifecycle | **Implemented** (create/list/delete, guarded writes) | 2 |
 | Asset index | **Implemented** (meshes/materials/textures/shaders + references) | 2 |
 | Backup catalogue & restore | **Implemented** (projects + workspaces, hashes, confirmation) | 2 |
-| Outfit composition rules | Not started | 6 |
+| 3D rendering | **Implemented** (Three.js, DDS, outfit bodies) | 3–6 |
+| Outfit composition rules | **Implemented** (slots, rigid bind pose, clipping, projects) | 6 |
+| Item overrides | **Implemented** (`project.items[]`, validation, workspace export) | 7 |
 | Export job / module integration | Workspace-only serialization exists; deployment not started | 8 |
-| 3D rendering | Not started | 3 |
+| Module System `.py` writer | Compiled item file only | Future |
 
 ## 11. Identity rules
 

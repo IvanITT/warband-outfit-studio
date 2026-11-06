@@ -63,7 +63,7 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | `engine/resources/materialOverride.js` | Material overrides: validate, merge fields, collect textures. | IMPLEMENTED |
 | `engine/skins/skins.js` | Parse `skins.txt` (body/calf/hand/head/skeleton per skin). | IMPLEMENTED |
 | `engine/outfit/clipping.js` | Bounding-box outfit clipping analysis. | IMPLEMENTED |
-| `engine/items/itemFlags.js` | Generated `itp_*` / `itcf_*` decoder. | IMPLEMENTED |
+| `engine/items/itemFlags.js` | Generated `itp_*` / `itcf_*` decoder and editor schema. | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header parser. | IMPLEMENTED |
 | `engine/validation/*` | Rule catalogue + item chain validation. | IMPLEMENTED |
 | `engine/projects/projectStore.js` | JSON projects, atomic writes, automatic backups, restore. | IMPLEMENTED |
@@ -142,6 +142,26 @@ render arrays -> Three.js group per slot
 cached per engine process. Rigid meshes are identified by an empty `rigging[]`
 array; skinned meshes keep their authored bind positions (ADR-031).
 
+## 6.2 Item editor flow (Phase 7)
+
+```
+engine.getItemEditable(module, item)
+        │  full record + decodeItemFlags/decodeCapabilities
+        ▼
+UI form -> project.items[] override (validated)
+        │  id/name/stats/meshes; existing ids immutable
+        ▼
+engine.exportItemOverrides(project)
+        │  parse original item_kinds1.txt
+        ├─ merge overridden base records
+        ├─ append new records
+        ├─ rerender only touched headers
+        └─ WorkspaceStore.writeFile("item_kinds1.txt")
+```
+
+The item file writer reuses untouched raw headers and separators, so a vanilla
+load/save remains byte-identical. Exporting never writes to the game.
+
 ## 7. Indexing and cache
 - **Scope**: every `.brf` in `<install>/CommonRes` plus `<module>/Resource`.
 - **Cost measured**: 219 files / 147.5 MB → ~0.5 s cold parse in Node.
@@ -167,6 +187,8 @@ The cache is derived data and safe to delete.
 | GET | `/api/modules/:id/summary` | item counts by slot, BRF stats, timing |
 | GET | `/api/items` | paged wearable items (`slot`, `category`, `q`, `wearable`, `limit`, `offset`) |
 | GET | `/api/items/:id` | item + resolved chain + validation + decoded flags |
+| GET | `/api/items/:id/editable` | full editable item record for the item editor |
+| GET | `/api/item-schema` | generated type/flag/capability symbol table |
 | POST | `/api/validate` | batch validation `{ module, ids[] }` |
 | GET | `/api/resources` | asset index (`type`, `q`, paging) |
 | GET | `/api/resources/:type/:name` | mesh/material/texture/shader detail + references |
@@ -196,6 +218,9 @@ The cache is derived data and safe to delete.
 | POST | `/api/projects` | create project `{ name, module, notes }` |
 | GET | `/api/projects/:id` | load project |
 | PUT | `/api/projects/:id` | save project (creates a backup) |
+| GET/POST | `/api/projects/:id/items` | list/save item overrides |
+| GET/DELETE | `/api/projects/:id/items/:itemId` | load/delete (typed confirmation) |
+| POST | `/api/projects/:id/items/export` | merge item overrides into a workspace |
 | GET/POST | `/api/projects/:id/outfits` | list/save outfits |
 | GET/DELETE | `/api/projects/:id/outfits/:outfitId` | load/delete (typed confirmation) |
 

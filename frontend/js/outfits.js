@@ -5,6 +5,7 @@ import {
   el, badge, stat, displayName, shortPath,
   SLOT_LABEL, CATEGORY_LABEL, emptyState,
 } from './ui.js';
+import { createItemEditor } from './item-editor.js';
 
 /**
  * @param {{ api:any, state:any, dom:any, setStatus:(text:string)=>void, onSummary:(summary:any)=>void }} ctx
@@ -24,6 +25,32 @@ export function createOutfitsView(ctx) {
       return;
     }
     showDetailEmpty(`${context}: ${message}`);
+  }
+
+  const editor = createItemEditor({
+    api,
+    state,
+    dom,
+    setStatus,
+    previewItem: ctx.previewItem,
+    onClose: () => {
+      state.editing = false;
+      if (state.detail && state.selectedId) renderDetail(state.detail);
+      else showDetailEmpty('Selecciona una prenda para inspeccionarla.');
+    },
+  });
+
+  function openEditor(detail) {
+    state.editing = true;
+    state.detail = detail;
+    editor.open(detail);
+  }
+
+  function openNewItem() {
+    state.editing = true;
+    state.selectedId = null;
+    for (const row of dom.itemList.querySelectorAll('.item-row')) row.classList.remove('is-selected');
+    editor.openNew();
   }
 
   async function loadItems(append) {
@@ -81,7 +108,14 @@ export function createOutfitsView(ctx) {
   }
 
   async function selectItem(id) {
-    if (state.selectedId === id) return;
+    if (state.selectedId === id) {
+      if (state.editing) {
+        state.editing = false;
+        if (state.detail) renderDetail(state.detail);
+      }
+      return;
+    }
+    state.editing = false;
     state.selectedId = id;
     for (const row of dom.itemList.querySelectorAll('.item-row')) {
       row.classList.toggle('is-selected', row.querySelector('.id')?.textContent === id);
@@ -98,7 +132,8 @@ export function createOutfitsView(ctx) {
     }
   }
 
-  function renderDetail({ item, chain, flags, capabilities }) {
+  function renderDetail(detail) {
+    const { item, chain, flags, capabilities } = detail;
     const armorValue = item.slot === 'head' ? item.headArmor : item.slot === 'foot' ? item.legArmor : item.bodyArmor;
     const header = el('div', { class: 'detail-header' }, [
       el('div', { class: 'detail-title' }, [
@@ -112,6 +147,20 @@ export function createOutfitsView(ctx) {
             ? badge(`${chain.summary.errors} error${chain.summary.errors === 1 ? '' : 'es'}`, 'bad')
             : badge('Cadena válida', 'ok'),
         ]),
+      ]),
+      el('div', { class: 'detail-actions' }, [
+        el('button', {
+          class: 'ghost small',
+          type: 'button',
+          text: 'Editar ítem',
+          onclick: () => openEditor(detail),
+        }),
+        el('button', {
+          class: 'ghost small',
+          type: 'button',
+          text: 'Ver en outfit',
+          onclick: () => ctx.previewItem?.(item.id, item.slot),
+        }),
       ]),
     ]);
 
@@ -280,6 +329,7 @@ export function createOutfitsView(ctx) {
     });
 
     dom.loadMore.addEventListener('click', () => loadItems(true));
+    dom.itemNew?.addEventListener('click', openNewItem);
   }
 
   return { init, loadModule, selectItem, state };

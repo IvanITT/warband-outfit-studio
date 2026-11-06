@@ -103,6 +103,22 @@ The body uses the module's real `skins.txt` and `skel_human` skeleton. Rigid
 parts (head, hands, helmets, gloves) are placed with bind bone matrices; armor
 is rendered in its stored bind pose.
 
+## Item editor
+
+In **Prendas**, select an item and click **Editar ítem**:
+
+- choose or create a project;
+- edit ID (new items only), name, plural, type/flags, capabilities, stats and
+  mesh references;
+- **Guardar override** stores the project record; the original is untouched;
+- **Previsualizar en outfit** opens the Phase 6 view with the base item;
+- **Exportar items** writes `workspace/item-edits/item_kinds1.txt`;
+- **Eliminar override** requires typing the item id;
+- **+ Nuevo** starts a new item; existing ids are immutable and duplicate ids or
+  missing meshes are rejected.
+
+The export is a workspace copy, not a deployment.
+
 ## Tests
 
 ```bat
@@ -115,7 +131,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 6 result: **108 passing**.
+Expected Phase 7 result: **109 passing**.
 
 ## CLI tools
 
@@ -193,6 +209,8 @@ config/profiles.json  local installation profiles (created on first run)
 | Outfit editor | `frontend/js/viewer.js` (Outfit panel), `engine/skins/skins.js`, `engine/outfit/clipping.js` |
 | Body/outfit data | `engine.getCharacter`, `getOutfitItemMeshes`, `getOutfitMeshRenderData` |
 | Outfit persistence | `projectStore.saveOutfit/listOutfits/getOutfit/removeOutfit` |
+| Item editor | `frontend/js/item-editor.js`, `engine.getItemEditable/validateItemOverride` |
+| Item persistence/export | `projectStore.saveItemOverride`, `engine.exportItemOverrides` |
 | Texture import | `engine.importTexture`, `WorkspaceStore`, `project.textures` |
 | Override persistence/export | `engine/resources/meshOverride.js`, `projectStore.saveMeshOverride` |
 | Viewport data API | `engine.getMeshRenderData`, `engine.getTextureFile` |

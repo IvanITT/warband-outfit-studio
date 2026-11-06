@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.7.0',
-        phase: 6,
+        version: '0.8.0',
+        phase: 7,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -107,6 +107,20 @@ export function createApi(engine) {
         offset: Number(query.get('offset') ?? 0),
       });
       return { ok: true, module: moduleId, ...result };
+    }
+
+    if (method === 'GET' && urlPath === '/api/item-schema') {
+      return { ok: true, ...engine.getItemSchema() };
+    }
+
+    const itemEditable = urlPath.match(/^\/api\/items\/([^/]+)\/editable$/);
+    if (method === 'GET' && itemEditable) {
+      const moduleId = query.get('module') ?? 'Native';
+      return {
+        ok: true,
+        module: moduleId,
+        ...(await engine.getItemEditable(moduleId, decodeURIComponent(itemEditable[1]))),
+      };
     }
 
     const itemDetail = urlPath.match(/^\/api\/items\/([^/]+)$/);
@@ -292,6 +306,47 @@ export function createApi(engine) {
 
     if (method === 'POST' && urlPath === '/api/outfits/analyze') {
       return { ok: true, ...(engine.analyzeOutfit(body ?? {})) };
+    }
+
+    const projectItemsExport = urlPath.match(/^\/api\/projects\/([^/]+)\/items\/export$/);
+    if (method === 'POST' && projectItemsExport) {
+      const projectId = decodeURIComponent(projectItemsExport[1]);
+      return {
+        ok: true,
+        ...(await engine.exportItemOverrides(projectId, {
+          workspaceLabel: body?.workspaceLabel ?? undefined,
+        })),
+      };
+    }
+
+    const projectItems = urlPath.match(/^\/api\/projects\/([^/]+)\/items$/);
+    if (projectItems) {
+      const projectId = decodeURIComponent(projectItems[1]);
+      if (method === 'GET') {
+        return { ok: true, items: await engine.listItemOverrides(projectId) };
+      }
+      if (method === 'POST') {
+        if (!body?.override) {
+          const error = new Error('Body must contain { override }');
+          // @ts-expect-error machine-readable
+          error.code = 'BAD_REQUEST';
+          throw error;
+        }
+        const override = await engine.saveItemOverride(projectId, body.override);
+        return { ok: true, override };
+      }
+    }
+
+    const projectItem = urlPath.match(/^\/api\/projects\/([^/]+)\/items\/([^/]+)$/);
+    if (projectItem) {
+      const projectId = decodeURIComponent(projectItem[1]);
+      const itemId = decodeURIComponent(projectItem[2]);
+      if (method === 'GET') {
+        return { ok: true, override: await engine.getItemOverride(projectId, itemId) };
+      }
+      if (method === 'DELETE') {
+        return { ok: true, ...(await engine.removeItemOverride(projectId, itemId, query.get('confirm') ?? '')) };
+      }
     }
 
     const projectOutfits = urlPath.match(/^\/api\/projects\/([^/]+)\/outfits$/);

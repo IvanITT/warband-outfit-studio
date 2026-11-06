@@ -159,6 +159,26 @@ export function decodeCapabilities(raw) {
   };
 }
 
+/**
+ * Symbol table for item/outfit editors. Returned lists are copies so callers
+ * cannot mutate the shared generated table.
+ */
+export function getItemSchema() {
+  const copy = (list) => list.map((entry) => ({ ...entry, aliases: [...entry.aliases] }));
+  return {
+    source: table.source,
+    sourceSha256: table.sourceSha256,
+    generatedAt: table.generatedAt,
+    fields: { ...table.fields },
+    types: copy(table.types),
+    attachment: copy(table.attachment),
+    flags: copy(table.flags),
+    carry: copy(table.carry),
+    shoot: copy(table.shoot),
+    capabilities: copy(table.capabilities),
+  };
+}
+
 /** Metadata for documentation and tests. */
 export const flagTable = {
   source: table.source,

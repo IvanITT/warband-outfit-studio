@@ -44,6 +44,7 @@ const dom = {
   tabs: [...document.querySelectorAll('.viewtab')],
   // outfits
   itemCount: document.getElementById('item-count'),
+  itemNew: document.getElementById('item-new'),
   itemList: document.getElementById('item-list'),
   loadMore: document.getElementById('load-more'),
   search: document.getElementById('search'),
@@ -176,6 +177,7 @@ const outfits = createOutfitsView({
   state,
   dom: {
     itemCount: dom.itemCount,
+    itemNew: dom.itemNew,
     itemList: dom.itemList,
     loadMore: dom.loadMore,
     search: dom.search,
@@ -189,6 +191,7 @@ const outfits = createOutfitsView({
     state.summary = summary;
     renderEngineStats();
   },
+  previewItem: (itemId, slot) => previewItem(itemId, slot),
 });
 
 const resources = createResourcesView({
@@ -448,6 +451,11 @@ function openItem(id) {
 
 function openViewer(meshName) {
   switchView('viewer').then(() => viewer.select(meshName));
+}
+
+async function previewItem(itemId, slot) {
+  await switchView('viewer');
+  await viewer.previewItem(itemId, slot);
 }
 
 async function refreshAll() {

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.7.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.8.0" />
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 6</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 7</p>
         </div>
       </div>
 
@@ -51,7 +51,10 @@
       <aside class="panel list-panel">
         <div class="panel-head">
           <h2>Prendas y armaduras</h2>
-          <span id="item-count" class="counter">—</span>
+          <div class="panel-head-actions">
+            <span id="item-count" class="counter">—</span>
+            <button id="item-new" class="ghost small" type="button">+ Nuevo</button>
+          </div>
         </div>
 
         <div class="filters">
@@ -341,7 +344,7 @@
     <footer class="statusbar">
       <span id="status-text">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 6 · Outfit &amp; Armor</span>
+      <span class="status-meta">Fase 7 · Ítems</span>
     </footer>
   </div>
 
@@ -368,6 +371,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.7.0"></script>
+  <script type="module" src="/js/app.js?v=0.8.0"></script>
 </body>
 </html>

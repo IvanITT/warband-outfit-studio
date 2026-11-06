@@ -345,3 +345,44 @@ common failure — a detached or mis-scaled accessory.
 
 **Consequences:** false negatives are possible for genuine surface clipping;
 Phase 9 can add vertex/triangle proximity without changing the API shape.
+
+## ADR-034 — Item overrides reference a base record; existing ids are immutable
+
+**Decision:** a project `items[]` override may edit an existing record
+(`baseItemId` set) or create a new one (`baseItemId: null`). Existing item ids
+cannot be changed, and duplicate ids are rejected.
+
+**Rationale:** Warband item ids are referenced by troops, factions, scripts and
+dialogs. Renaming one in place would silently break external references, and
+duplicate ids make resolution order-dependent. A new id is the safe operation.
+
+**Consequences:** renaming an existing item requires creating a replacement and
+migrating references in a later item/deployment phase.
+
+## ADR-035 — Export compiled `item_kinds1.txt` to a workspace
+
+**Decision:** the item editor exports the merged **compiled** item file to
+`workspace/item-edits/item_kinds1.txt`; it does not emit Module System `.py`
+source and does not deploy to the game.
+
+**Rationale:** the engine already parses/serializes the compiled format with
+byte-identical preservation of untouched records. This keeps the export
+deterministic and avoids a Python dependency. Deployment remains Phase 8.
+
+**Consequences:** mod authors who maintain `.py` sources must mirror the change
+there until a later Module System writer exists.
+
+## ADR-036 — Validate item references, save overrides separately
+
+**Decision:** saving an item override validates its id, numeric ranges,
+capability string, flag type and every mesh reference against the module index.
+The original installation file is never edited; only the project override and
+workspace export are written.
+
+**Rationale:** broken mesh names are the most common item-authoring error and
+should be caught before a build. Project overrides also make edits reversible and
+backed up like all other project data.
+
+**Consequences:** a new item cannot reference a mesh that has not been indexed
+yet (for example, a mesh in an unbuilt BRF); the author must first make the mesh
+available to the module.

@@ -136,6 +136,7 @@ export class ProjectStore {
     }
     if (project.id !== id) throw new Error('Project id does not match its file name');
     project.meshes = project.meshes ?? [];
+    project.items = project.items ?? [];
     project.outfits = project.outfits ?? [];
     project.materials = project.materials ?? [];
     project.textures = project.textures ?? [];
@@ -232,6 +233,67 @@ export class ProjectStore {
     }
     await this.save(project);
     return { removed: meshId };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Item overrides (Phase 7)                                          */
+  /* ---------------------------------------------------------------- */
+
+  /** @param {string} projectId @param {any} override */
+  async saveItemOverride(projectId, override) {
+    const project = await this.load(projectId);
+    const index = project.items.findIndex((entry) => entry.id === override.id);
+    if (index >= 0) project.items[index] = override;
+    else project.items.push(override);
+    await this.save(project);
+    return override;
+  }
+
+  /** @param {string} projectId */
+  async listItemOverrides(projectId) {
+    const project = await this.load(projectId);
+    return project.items.map((entry) => ({
+      id: entry.id,
+      baseItemId: entry.baseItemId ?? null,
+      name: entry.fields?.name ?? entry.id,
+      mode: entry.baseItemId ? 'edit' : 'create',
+      moduleId: entry.moduleId,
+      updatedAt: entry.updatedAt,
+    }));
+  }
+
+  /** @param {string} projectId @param {string} itemId */
+  async getItemOverride(projectId, itemId) {
+    const project = await this.load(projectId);
+    const override = project.items.find((entry) => entry.id === itemId);
+    if (!override) {
+      const error = new Error(`Item override '${itemId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'ITEM_OVERRIDE_NOT_FOUND';
+      throw error;
+    }
+    return override;
+  }
+
+  /** @param {string} projectId @param {string} itemId @param {string} confirm */
+  async removeItemOverride(projectId, itemId, confirm) {
+    if (confirm !== itemId) {
+      const error = new Error('Confirmation required: pass the item id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const project = await this.load(projectId);
+    const before = project.items.length;
+    project.items = project.items.filter((entry) => entry.id !== itemId);
+    if (project.items.length === before) {
+      const error = new Error(`Item override '${itemId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'ITEM_OVERRIDE_NOT_FOUND';
+      throw error;
+    }
+    await this.save(project);
+    return { removed: itemId };
   }
 
   /* ---------------------------------------------------------------- */

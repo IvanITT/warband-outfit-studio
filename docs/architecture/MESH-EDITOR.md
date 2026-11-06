@@ -134,5 +134,6 @@ and before export; layout must match the source mesh.
 - Overrides store a full geometry snapshot; a delta format is a future
   optimization.
 - Meshes with vertex-animation frames allow transforms only.
-- The editor is not yet connected to outfit/item projects (Phase 6/7).
+- Overrides are available from the Visor project controls; outfit/item editing
+  has its own project records rather than editing mesh overrides directly.
 - No project-level diff/merge UI.

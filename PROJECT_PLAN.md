@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 6 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 7**
+> Current phase: **Phase 7 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 8**
 
 ---
 
@@ -144,6 +144,8 @@ Detailed documents:
 
 - [Architecture](docs/architecture/ARCHITECTURE.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
+- [Outfits](docs/architecture/OUTFITS.md)
+- [Items](docs/architecture/ITEMS.md)
 - [Format map](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
 
@@ -312,11 +314,18 @@ Completed:
 
 **Exit met:** a full outfit (`mail_shirt` + `helmet_with_neckguard` + `leather_gloves` + `leather_boots`) renders on both bodies, saves, reloads and validates; source game files untouched.
 
-### Phase 7 — Item Editor
+### Phase 7 — Item Editor — **COMPLETE (2026-11-06)**
 
-- Create/edit items: id, names, type, mesh refs, armor values, weight, value, flags, merchandise.
-- Symbolic flags from Phase 1; validation and serialization.
-- **Exit:** new item written to a workspace copy and validated; round-trip is stable.
+Completed:
+
+- `getItemEditable` + `/api/item-schema` expose full item records and symbolic flag/capability data.
+- In-place item form in **Prendas**: identity, type, flags, capabilities, 17 stats, mesh references and modifier bits.
+- Project `items[]` overrides: edit existing records or create new ones; existing ids immutable; duplicate ids and missing meshes blocked.
+- **Exportar items** merges all overrides into `workspace/item-edits/item_kinds1.txt`; untouched raw records remain byte-identical.
+- Preview opens the Phase 6 outfit view with the base item in its slot.
+- 109 automated tests.
+
+**Exit met:** `itm_mail_shirt` edited and `itm_test_new_armor` created; exported 621-record file re-parsed correctly; source `item_kinds1.txt` SHA-256 unchanged.
 
 ### Phase 8 — Warband Builder & Exporter
 
@@ -339,9 +348,9 @@ Completed:
 
 ## 9. Current Phase
 
-**Phase 6 is COMPLETE.** All Phase 6 deliverables are implemented, tested and documented.
+**Phase 7 is COMPLETE.** All Phase 7 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 7.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 8.
 
 ### Roadmap reconciliation (accepted)
 
@@ -545,27 +554,49 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 
 ---
 
-## 11. Pending Work
+### Phase 7 (2026-11-06)
 
-### Phase 7 (proposed, not authorized)
+**Item editor**
 
-1. **Item records** — create/edit id, name, type, mesh refs, armor values, weight, value, flags, merchandise.
-2. **Module System integration** — generate/write `module_items.py`-compatible records and compiled `item_kinds1.txt` safely.
-3. **Validation** — reuse the symbol/flag tables, detect duplicates and broken mesh/material chains before writing.
-4. **Workspace export** — write the edited item file to a workspace, with round-trip and diff tests.
-5. **Tests/docs** — item invariants, pristine-file round-trip, API and UI flow.
+- `getItemEditable` returns the full record plus `decodeItemFlags`/`decodeCapabilities`; `/api/item-schema` exposes the generated symbol table.
+- In-place **Prendas** form: ID/name/plural, type selector + flags, capabilities, value/modifier/weight/abundance, 12 combat/armor stats, mesh rows and modifier bits.
+- Project `items[]` overrides support editing existing records and creating new ones. Existing ids are immutable; duplicate ids and missing meshes are rejected.
+- Factions and triggers are preserved; they are not edited in this phase.
+- **Exportar items** merges overrides into a workspace `item_kinds1.txt`; untouched records reuse raw lines.
+- **Ver en outfit** preview uses the Phase 6 composition with the base item in its slot.
+- 109 automated tests.
 
-### Explicitly out of Phase 7
+**Verification**
 
-Deployment into a live module, build/launcher orchestration (Phase 8), animation editing.
-
-### Backlog after Phase 7
-
-- Phase 8: builder/exporter; Phase 9: hardening/recovery; Phase 10: packaging.
+- 109/109 tests in ~5.9 s (item editable/validation/export, API).
+- `itm_mail_shirt` edited (`name = Edited_Mail_Shirt`, body armor 44); new `itm_test_new_armor` appended.
+- Export produced 621 records from Native's 620, re-parsed correctly; source SHA-256 unchanged.
+- UI verified: editor loads override, saves, exports to `item-edits/item_kinds1.txt`, previews an item in the Visor.
+- Screenshot captured to `docs/assets/items-phase7.png`.
 
 ---
 
-## 12. Known Issues (after Phase 6)
+## 11. Pending Work
+
+### Phase 8 (proposed, not authorized)
+
+1. **Build pipeline** — project → validation → workspace module snapshot → build log.
+2. **Deployment** — explicit confirmation, hash-recorded backup, module copy.
+3. **Integration** — item overrides + mesh/material/texture overrides merged into one build.
+4. **Dry run** — diff/report before touching a module.
+5. **Tests/docs** — end-to-end build/rollback, destructive-operation safety.
+
+### Explicitly out of Phase 8
+
+Live game process patching, automated Steam/GOG deployment, animation editing.
+
+### Backlog after Phase 8
+
+- Phase 9: hardening/recovery; Phase 10: packaging.
+
+---
+
+## 12. Known Issues (after Phase 7)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
@@ -591,7 +622,12 @@ Deployment into a live module, build/launcher orchestration (Phase 8), animation
 | 20 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
 | 21 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
 | 22 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
-| 23 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
+| 23 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | - |
+| 24 | Item preview uses the base module asset; edited mesh refs are not visible until export + index rebuild | Medium | Documented |
+| 25 | Item export writes compiled `item_kinds1.txt`, not Module System `.py` | Medium | Phase 8/module-system writer |
+| 26 | Existing item ids cannot be changed; no reference migration | Medium | Future item migration |
+| 27 | Item factions and triggers are preserved but not editable | Low | Future item editor pass |
+| 28 | Item deletion is not exposed; only project overrides can be removed | Low | Future item editor pass |
 
 ---
 
@@ -621,6 +657,9 @@ Deployment into a live module, build/launcher orchestration (Phase 8), animation
 | Outfit clipping | Bounding-box heuristic; no mesh-level collision test | Add triangle/vertex proximity in Phase 9 |
 | Outfit slots | One item per slot; body includes clothing/armor/cape | Layered body model when item rules require it |
 | Snapshot | Browser-download PNG; not tracked in a project/workspace | Route through workspace exports in Phase 8 |
+| Item export | Compiled item file only; factions/triggers preserved but not edited | Module System writer + item migration in Phase 8+ |
+| Item preview | Base module item; override meshes/names need a rebuild | Add override-aware preview in a later pass |
+| Item validation | Mesh existence is checked, but material/texture chain health is delegated to the existing validator | Reuse full chain rules before build |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
 | Backups | No pruning/retention policy (ADR-020) | Phase 9 |
@@ -667,6 +706,9 @@ Deployment into a live module, build/launcher orchestration (Phase 8), animation
 | ADR-031 | Pose rigid meshes with bind bone matrices; leave skinned bind positions untouched | Accepted (Phase 6) |
 | ADR-032 | Outfits are project records referencing item ids, not item copies | Accepted (Phase 6) |
 | ADR-033 | Clipping is a bounding-box heuristic with explicit false-positive limits | Accepted (Phase 6) |
+| ADR-034 | Item overrides reference a base record; existing ids are immutable | Accepted (Phase 7) |
+| ADR-035 | Export compiled `item_kinds1.txt` to a workspace | Accepted (Phase 7) |
+| ADR-036 | Validate item references, save overrides separately | Accepted (Phase 7) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -711,12 +753,17 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-31 | Helmets and gloves are rigid; Native body, foot and body-armor items are rigged | 108 head, 12 hand, 28 foot, 132 body item meshes | **VERIFIED** | outfit bone mapping |
 | F-32 | Gloves resolve as `_L` and `_R` meshes; the outfit view must load both | `itm_leather_gloves` | **VERIFIED** | `getOutfitItemMeshes` |
 | F-33 | Full outfit composition and save/load round-trip works for both bodies | UI + engine integration | **VERIFIED** | Phase 6 exit |
+| F-34 | `item_kinds1.txt` untouched records can be copied raw while touched headers are re-rendered | existing serializer + 3-module round-trip tests | **VERIFIED** | item export |
+| F-35 | Item `flags` low 5 bits are the type; capabilities must remain a decimal string | schema + `mail_shirt` (`0x101000D`, capabilities `0`) | **VERIFIED** | item editor |
+| F-36 | Adding a record changes only the declared count and appends one separator block | Native 620 → 621 export re-parsed | **VERIFIED** | new item export |
+| F-37 | Existing item ids are referenced externally by troops/scripts; renaming in place is unsafe | item docs + Module System conventions | **LIKELY** | ADR-034 |
+| F-38 | A new item with a valid mesh but no material chain can still be exported structurally; visual validation remains separate | item export tests | **VERIFIED** | item validation limits |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **108 / 108 passing** (~6.8 s), zero dependencies.
+**Command:** `npm test` - **109 / 109 passing** (~5.9 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -743,16 +790,28 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `integration/materials` | 3 | real material edit/export, texture import, invalid override |
 | `integration/skins` | 1 | Native `skins.txt`, both bodies, missing skin |
 | `integration/outfits` | 1 | item meshes, rigid pose, outfit save/load/delete/validation |
+| `integration/items` | 1 | editable record, override validation, new item export, source hash |
 | `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
 | `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, outfits, CSP, static, 404 |
 
 Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734 textures / 139 shaders; 0 parse errors; byte-identical `item_kinds1.txt` round-trip in all three modules; **219/219 BRF byte-identical round-trip**.
 
-**Not yet tested:** animation/skeleton posing, dirty animation/body writing (unsupported), module `Resource` corpus round-trip, `.sco`/`.sav`, concurrent index builds, >1 GB mods under memory pressure.
+**Not yet tested:** item deployment into a live module, Module System `.py` output, animation/skeleton posing, dirty animation/body writing (unsupported), module `Resource` corpus round-trip, `.sco`/`.sav`, concurrent index builds, >1 GB mods under memory pressure.
 
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 7 completed
+
+- **Item model**: `getItemEditable` + generated item schema; full record fields and symbolic flags/capabilities.
+- **Editor UI**: in-place Prendas form, type/flags, stats, mesh rows, project selection, create/edit/delete overrides.
+- **Validation**: immutable existing ids, duplicate ids, numeric/flag/capability and mesh-reference checks.
+- **Export**: merge overrides into workspace `item_kinds1.txt`; untouched records byte-identical; source hash unchanged.
+- **Preview**: base item opens the Phase 6 outfit view; 0.8.0.
+- **Tests**: 109 passing (item editable/override/export/API).
+- Docs: `docs/architecture/ITEMS.md`, data model/architecture/ADR-034..036.
+- Milestone tag: `phase-7-item-editor`.
 
 ### 2026-11-06 - Phase 6 completed
 
@@ -845,27 +904,27 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 7 — Item Editor** (proposed; requires explicit approval).
+**Phase 8 — Warband Builder & Exporter** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Item records | editable id, name, plural, type, mesh, armor/weight/value, flags, merchandise | records round-trip |
-| Symbolic fields | type/attachment/carry/shoot selectors from the generated table | no hand-typed magic numbers |
-| Validation | duplicate ids, mesh/material chains, reserved ids | issues before writing |
-| Workspace export | write edited `item_kinds1.txt` to a workspace | byte-stable round-trip |
-| UI | item form + preview using the Phase 6 outfit view | create/edit/save/reopen |
-| Tests/docs | parser/writer invariants, API, real fixtures | green and documented |
+| Project build | collect mesh/material/texture/item overrides | a complete build manifest is produced |
+| Validation gate | run chain and project validation before writing | invalid builds stop with a report |
+| Workspace snapshot | assemble a deployable module copy under `workspace/` | dry-run output is browsable |
+| Deployment | explicit confirmation, hash-recorded backup, module copy | reversible deployment |
+| Build log | per-file actions, hashes, warnings and timings | auditable report |
+| Tests/docs | end-to-end build/rollback, API/UI | green and documented |
 
-### Explicitly out of Phase 7
+### Explicitly out of Phase 8
 
-Deployment into a live module/build pipeline, animation editing, scene/troop/faction editors.
+Live process patching, automatic Steam/GOG deployment, animation/troop/scene editors.
 
 ### Decisions requested with this approval
 
-1. **Item source**: edit existing records in place (proposed) vs create-from-scratch only.
-2. **Export**: workspace copy of `item_kinds1.txt` (proposed) vs a Module System `.py` file.
-3. **Id conflicts**: block duplicate ids (proposed) vs allow with warning.
+1. **Deployment target**: build a full module copy in a workspace first (proposed) vs write directly into a module.
+2. **Backups**: hash-recorded module snapshot before any write (proposed) vs file-level only.
+3. **Integration**: merge all existing project override types in one build (proposed) vs item/mesh only.
 
 **Waiting for explicit user approval.**

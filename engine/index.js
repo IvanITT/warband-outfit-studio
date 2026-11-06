@@ -13,8 +13,8 @@ import { detectInstallation, describeInstallation } from './installation/detect.
 import { ProfileStore } from './installation/profileStore.js';
 import { parseSkinsFile } from './skins/skins.js';
 import { analyzeOutfitClipping } from './outfit/clipping.js';
-import { parseItemKindsFile } from './items/itemKinds.js';
-import { decodeItemFlags, decodeCapabilities } from './items/itemFlags.js';
+import { parseItemKindsFile, renderItemHeader, serializeItemDocument } from './items/itemKinds.js';
+import { decodeItemFlags, decodeCapabilities, getItemSchema } from './items/itemFlags.js';
 import { createBrfIndex } from './resources/brfIndex.js';
 import { createTextureResolver } from './resources/textureResolver.js';
 import { parseBrf, serializeBrf, updateMesh } from './resources/brf.js';
@@ -98,6 +98,58 @@ function summarizeMeshEntry(entry) {  return {
     lodLevel: entry.nameInfo.lodLevel,
     pieceIndex: entry.nameInfo.pieceIndex,
   };
+}
+
+const ITEM_TEXT_FIELDS = ['name', 'plural'];
+const ITEM_STAT_FIELDS = [
+  'flags', 'value', 'modifierBits', 'weight', 'abundance', 'headArmor',
+  'bodyArmor', 'legArmor', 'difficulty', 'hitPoints', 'speedRating',
+  'missileSpeed', 'weaponLength', 'maxAmmo', 'thrustDamage', 'swingDamage',
+];
+
+/** @param {any} base @param {any} override */
+function mergeItemOverride(base, override) {
+  const fields = override.fields ?? {};
+  const factions = Array.isArray(override.factions)
+    ? override.factions
+    : [...(base?.factions ?? [])];
+  const triggers = Array.isArray(override.triggers)
+    ? override.triggers
+    : [...(base?.triggers ?? [])];
+  const merged = {
+    ...(base ?? {}),
+    ...fields,
+    id: override.id,
+    capabilities: String(fields.capabilities ?? base?.capabilities ?? '0'),
+    meshes: (override.meshes ?? []).map((mesh) => ({
+      name: mesh.name,
+      modifierBits: Number(mesh.modifierBits ?? 0),
+    })),
+    factions: factions.map(Number),
+    triggers: triggers.map(String),
+    raw: base
+      ? { ...base.raw }
+      : {
+        header: '',
+        factionsCount: String(factions.length),
+        factionIds: factions.join(' '),
+        triggersCount: String(triggers.length),
+        triggers: triggers.map(String),
+        separator: '',
+      },
+  };
+  if (!base) merged.raw.header = renderItemHeader(merged);
+  if (base) {
+    if (Array.isArray(override.factions)) {
+      merged.raw.factionsCount = String(merged.factions.length);
+      merged.raw.factionIds = merged.factions.join(' ');
+    }
+    if (Array.isArray(override.triggers)) {
+      merged.raw.triggersCount = String(merged.triggers.length);
+      merged.raw.triggers = merged.triggers;
+    }
+  }
+  return merged;
 }
 
 export class WarbandEngine {
@@ -356,6 +408,233 @@ export class WarbandEngine {
       chain,
       flags: decodeItemFlags(item.flags),
       capabilities: decodeCapabilities(item.capabilities),
+    };
+  }
+
+  /** Symbol table for the item editor. */
+  getItemSchema() {
+    return getItemSchema();
+  }
+
+  /**
+   * Full editable item record plus decoded flags/capabilities.
+   * @param {string} moduleId
+   * @param {string} itemId
+   */
+  async getItemEditable(moduleId, itemId) {
+    const data = await this.getModuleData(moduleId);
+    const item = data.itemsById.get(itemId.toLowerCase());
+    if (!item) {
+      const error = new Error(`Item '${itemId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'ITEM_NOT_FOUND';
+      throw error;
+    }
+    return {
+      item: {
+        ...item,
+        meshes: item.meshes.map((mesh) => ({ ...mesh })),
+        factions: [...item.factions],
+        triggers: [...item.triggers],
+      },
+      flags: decodeItemFlags(item.flags),
+      capabilities: decodeCapabilities(item.capabilities),
+    };
+  }
+
+  /**
+   * @param {string} moduleId
+   * @param {any} override
+   * @param {string} [projectId]
+   */
+  async validateItemOverride(moduleId, override, projectId) {
+    /** @type {string[]} */
+    const issues = [];
+    const data = await this.getModuleData(moduleId);
+    const id = typeof override?.id === 'string' ? override.id.trim() : '';
+    const baseId = typeof override?.baseItemId === 'string' && override.baseItemId
+      ? override.baseItemId.toLowerCase()
+      : null;
+    const base = baseId ? data.itemsById.get(baseId) : null;
+
+    if (!/^itm_[a-z0-9_]+$/.test(id)) {
+      issues.push('id must match ^itm_[a-z0-9_]+$');
+    }
+    if (baseId && !base) issues.push(`base item '${override.baseItemId}' does not exist`);
+    if (base && id !== base.id) issues.push('an existing item id cannot be changed');
+    if (!base && data.itemsById.has(id.toLowerCase())) {
+      issues.push(`item '${id}' already exists in the module`);
+    }
+
+    if (projectId) {
+      try {
+        const project = await this.projects.load(projectId);
+        for (const other of project.items) {
+          if (other.id === id && (other.baseItemId ?? null) !== baseId) {
+            issues.push(`another project override already uses id '${id}'`);
+          }
+          if (baseId && other.baseItemId === baseId && other.id !== id) {
+            issues.push(`another project override already edits '${baseId}'`);
+          }
+        }
+      } catch (error) {
+        issues.push(`cannot read project: ${error.message}`);
+      }
+    }
+
+    const fields = override?.fields ?? {};
+    for (const key of ITEM_TEXT_FIELDS) {
+      const value = fields[key];
+      if (typeof value !== 'string' || !value.trim() || /\s/.test(value)) {
+        issues.push(`${key} must be a non-empty token without whitespace`);
+      }
+    }
+    for (const key of ITEM_STAT_FIELDS) {
+      const value = Number(fields[key]);
+      if (!Number.isFinite(value)) issues.push(`${key} must be numeric`);
+      if (['flags', 'value', 'modifierBits', 'abundance', 'headArmor', 'bodyArmor',
+        'legArmor', 'difficulty', 'hitPoints', 'maxAmmo', 'thrustDamage', 'swingDamage'].includes(key)
+        && Number.isFinite(value) && value < 0) {
+        issues.push(`${key} must be non-negative`);
+      }
+      if (['flags', 'value', 'modifierBits', 'abundance', 'headArmor', 'bodyArmor',
+        'legArmor', 'difficulty', 'hitPoints', 'maxAmmo', 'thrustDamage', 'swingDamage'].includes(key)
+        && Number.isFinite(value) && !Number.isInteger(value)) {
+        issues.push(`${key} must be an integer`);
+      }
+    }
+    if (Number(fields.flags) > 0xFFFFFFFF) issues.push('flags must fit in 32 bits');
+    const types = new Set(getItemSchema().types.map((entry) => Number(entry.value)));
+    if (!types.has(Number(fields.flags) & 0x1F)) issues.push('flags has an unknown item type');
+
+    if (!/^(0|[1-9][0-9]*)$/.test(String(fields.capabilities ?? ''))) {
+      issues.push('capabilities must be a non-negative decimal string');
+    } else {
+      try {
+        const capabilities = BigInt(fields.capabilities);
+        if (capabilities > 0xFFFFFFFFFFFFFFFFn) issues.push('capabilities must fit in 64 bits');
+      } catch {
+        issues.push('capabilities must be a non-negative decimal string');
+      }
+    }
+
+    if (!Array.isArray(override?.meshes)) {
+      issues.push('meshes must be an array');
+    } else {
+      if (override.meshes.length > 64) issues.push('at most 64 meshes are supported');
+      for (const mesh of override.meshes) {
+        if (!mesh || typeof mesh.name !== 'string' || !mesh.name || /\s/.test(mesh.name)) {
+          issues.push('mesh names must be non-empty tokens without whitespace');
+          continue;
+        }
+        if (!Number.isInteger(Number(mesh.modifierBits)) || Number(mesh.modifierBits) < 0) {
+          issues.push(`mesh '${mesh.name}' modifierBits must be a non-negative integer`);
+        }
+        const resolution = data.brfIndex.resolveMesh(mesh.name);
+        if (resolution.direct.length === 0 && resolution.base.length === 0 && resolution.pieces.length === 0) {
+          issues.push(`mesh '${mesh.name}' does not exist in the module`);
+        }
+      }
+    }
+
+    if (override?.factions !== undefined) {
+      if (!Array.isArray(override.factions) || override.factions.some((value) => !Number.isInteger(Number(value)) || Number(value) < 0)) {
+        issues.push('factions must be an array of non-negative integers');
+      }
+    }
+    if (override?.triggers !== undefined) {
+      if (!Array.isArray(override.triggers) || override.triggers.some((value) => typeof value !== 'string' || value.includes('\n'))) {
+        issues.push('triggers must be an array of single-line strings');
+      }
+    }
+
+    return issues;
+  }
+
+  /** @param {string} projectId @param {any} override */
+  async saveItemOverride(projectId, override) {
+    const moduleId = override?.moduleId ?? (await this.projects.load(projectId)).target.moduleId;
+    const issues = await this.validateItemOverride(moduleId, override, projectId);
+    if (issues.length > 0) {
+      const error = new Error(`Item override is invalid: ${issues.join('; ')}`);
+      // @ts-expect-error machine-readable
+      error.code = 'INVALID_ITEM';
+      throw error;
+    }
+    const saved = {
+      ...override,
+      moduleId,
+      updatedAt: new Date().toISOString(),
+    };
+    return this.projects.saveItemOverride(projectId, saved);
+  }
+
+  /** @param {string} projectId */
+  async listItemOverrides(projectId) {
+    return this.projects.listItemOverrides(projectId);
+  }
+
+  /** @param {string} projectId @param {string} itemId */
+  async getItemOverride(projectId, itemId) {
+    return this.projects.getItemOverride(projectId, itemId);
+  }
+
+  /** @param {string} projectId @param {string} itemId @param {string} confirm */
+  async removeItemOverride(projectId, itemId, confirm) {
+    return this.projects.removeItemOverride(projectId, itemId, confirm);
+  }
+
+  /**
+   * Merge every project item override into `item_kinds1.txt` and write a
+   * workspace copy. The game installation is never modified.
+   * @param {string} projectId
+   * @param {{ workspaceLabel?: string }} [options]
+   */
+  async exportItemOverrides(projectId, options = {}) {
+    const project = await this.projects.load(projectId);
+    if (!project.items.length) {
+      const error = new Error('The project has no item overrides.');
+      // @ts-expect-error machine-readable
+      error.code = 'NO_ITEM_OVERRIDES';
+      throw error;
+    }
+    const moduleId = project.items[0]?.moduleId ?? project.target.moduleId;
+    const data = await this.getModuleData(moduleId);
+    for (const override of project.items) {
+      const issues = await this.validateItemOverride(moduleId, override);
+      if (issues.length > 0) {
+        const error = new Error(`Cannot export invalid override '${override.id}': ${issues.join('; ')}`);
+        // @ts-expect-error machine-readable
+        error.code = 'INVALID_ITEM';
+        throw error;
+      }
+    }
+
+    const byBase = new Map();
+    const created = [];
+    for (const override of project.items) {
+      if (override.baseItemId) byBase.set(override.baseItemId.toLowerCase(), override);
+      else created.push(override);
+    }
+    const items = data.items.items.map((base) => {
+      const override = byBase.get(base.id.toLowerCase());
+      return override ? mergeItemOverride(base, override) : base;
+    });
+    for (const override of created) items.push(mergeItemOverride(null, override));
+    const rerender = new Set(project.items.map((override) => override.id));
+    const text = serializeItemDocument({ ...data.items, items }, {
+      rerender: (item) => rerender.has(item.id),
+    });
+    const workspace = await this.createWorkspace(options.workspaceLabel ?? 'item-edits', {
+      reuse: true,
+      moduleId,
+    });
+    const result = await this.workspaces.writeFile(workspace.id, 'item_kinds1.txt', text);
+    return {
+      ...result,
+      workspaceId: workspace.id,
+      items: items.length,
+      overrides: project.items.length,
     };
   }
 

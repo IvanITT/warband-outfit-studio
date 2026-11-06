@@ -41,6 +41,17 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   assert.equal(detail.flags.type.name, 'itp_type_body_armor');
   assert.equal(detail.capabilities.value, '0');
 
+  const schemaResponse = await fetch(`${base}/api/item-schema`);
+  const itemSchema = await schemaResponse.json();
+  assert.equal(itemSchema.ok, true);
+  assert.ok(itemSchema.types.length > 10);
+
+  const itemEditableResponse = await fetch(`${base}/api/items/itm_mail_shirt/editable?module=Native`);
+  const editableItem = await itemEditableResponse.json();
+  assert.equal(editableItem.ok, true);
+  assert.equal(editableItem.item.meshes[0].name, 'mail_shirt_a');
+  assert.equal(editableItem.flags.type.name, 'itp_type_body_armor');
+
   const validationResponse = await fetch(`${base}/api/validate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -193,6 +204,66 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
     { method: 'DELETE' },
   );
   assert.equal(outfitDelete.status, 200);
+
+  const itemOverride = {
+    schemaVersion: 1,
+    id: 'itm_mail_shirt',
+    baseItemId: 'itm_mail_shirt',
+    mode: 'edit',
+    moduleId: 'Native',
+    fields: {
+      name: 'API_Mail_Shirt',
+      plural: 'API_Mail_Shirts',
+      flags: editableItem.item.flags,
+      capabilities: editableItem.item.capabilities,
+      value: 1500,
+      modifierBits: editableItem.item.modifierBits,
+      weight: 19.5,
+      abundance: 100,
+      headArmor: 0,
+      bodyArmor: 44,
+      legArmor: 12,
+      difficulty: 8,
+      hitPoints: 0,
+      speedRating: 0,
+      missileSpeed: 0,
+      weaponLength: 0,
+      maxAmmo: 0,
+      thrustDamage: 0,
+      swingDamage: 0,
+    },
+    meshes: editableItem.item.meshes,
+    factions: editableItem.item.factions,
+    triggers: editableItem.item.triggers,
+  };
+  const itemOverrideResponse = await fetch(`${base}/api/projects/${created.project.id}/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ override: itemOverride }),
+  });
+  assert.equal(itemOverrideResponse.status, 200);
+  assert.equal((await itemOverrideResponse.json()).override.id, 'itm_mail_shirt');
+
+  const itemOverridesResponse = await fetch(`${base}/api/projects/${created.project.id}/items`);
+  assert.equal((await itemOverridesResponse.json()).items.length, 1);
+  const itemOverrideGetResponse = await fetch(`${base}/api/projects/${created.project.id}/items/itm_mail_shirt`);
+  assert.equal((await itemOverrideGetResponse.json()).override.fields.bodyArmor, 44);
+
+  const itemExportResponse = await fetch(`${base}/api/projects/${created.project.id}/items/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workspaceLabel: 'api-item-edits' }),
+  });
+  assert.equal(itemExportResponse.status, 200);
+  const itemExport = await itemExportResponse.json();
+  assert.equal(itemExport.overrides, 1);
+  assert.ok(itemExport.file.endsWith('item_kinds1.txt'));
+
+  const itemOverrideDelete = await fetch(
+    `${base}/api/projects/${created.project.id}/items/itm_mail_shirt?confirm=itm_mail_shirt`,
+    { method: 'DELETE' },
+  );
+  assert.equal(itemOverrideDelete.status, 200);
 
   const projectResponse = await fetch(`${base}/api/projects/${created.project.id}`);
   const project = await projectResponse.json();

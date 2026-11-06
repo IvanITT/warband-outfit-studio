@@ -636,3 +636,79 @@ New suites:
 ### Milestone
 
 Tag `phase-6-outfit-editor`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 7 — Item Editor
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Edit real Warband item records safely, validate their stats and references, and
+export a merged compiled item file into a workspace without touching the game.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Editable model | `getItemEditable` + `/api/item-schema` with full record, flags/capabilities and symbol table |
+| UI | In-place **Prendas** form: identity, type/flags, capabilities, stats, mesh rows, project selection |
+| Overrides | `project.items[]`: edit existing or create new; immutable existing ids; duplicate/missing-mesh guards |
+| Export | merge into `workspace/item-edits/item_kinds1.txt`; untouched records raw-preserved |
+| Preview | opens the Phase 6 outfit view with the base item in its slot |
+| Tests | 109 automated tests |
+
+### Tests
+
+`npm test` → **109 / 109 passing** (~5.9 s).
+
+New suite:
+
+- `integration/items` (1): editable record, override validation, new item export,
+  re-parse and source SHA-256 unchanged.
+
+`integration/api` extended with schema, editable item, project item CRUD and
+export endpoints.
+
+### Verified against real data
+
+- `itm_mail_shirt`: type `itp_type_body_armor`, mesh `mail_shirt_a`, flags
+  `0x101000D`.
+- Edited `Edited_Mail_Shirt` body armor 44 and value 1500; exported.
+- New `itm_test_new_armor` appended; exported file had **621** records from
+  Native's 620 and re-parsed correctly.
+- Source `Modules/Native/item_kinds1.txt` SHA-256 unchanged.
+- UI verified: override loaded, saved, exported, previewed in the Visor;
+  screenshot captured to `docs/assets/items-phase7.png`.
+
+### Findings
+
+1. **Raw-header reuse preserves untouched items** while re-rendering only
+   touched headers (F-34).
+2. **Type is flags & 0x1F; capabilities must stay a decimal string** (F-35).
+3. **New records append cleanly** and update the declared count (F-36).
+4. **Existing ids should be treated as immutable** because external records
+   reference them (F-37).
+5. **Item export is structural**; material/texture chain validation remains a
+   separate validator path (F-38).
+
+### Known limitations
+
+- Existing ids cannot be renamed.
+- Factions/triggers are preserved but not edited.
+- Preview uses the base module item; edited meshes need export + index rebuild.
+- Export is compiled `item_kinds1.txt`, not Module System `.py`.
+- Item deletion is not exposed; only project overrides can be removed.
+
+### Documentation updated
+
+- New `docs/architecture/ITEMS.md` (with screenshot).
+- `PROJECT_PLAN.md` (Phase 7 complete, Phase 8 proposed, ADR-034…036, findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`,
+  `docs/development/{DECISIONS,SETUP}.md`, `README.md`, version 0.8.0.
+
+### Milestone
+
+Tag `phase-7-item-editor`. No game files were modified. `npm test` green.

@@ -1413,6 +1413,20 @@ export function createViewer(ctx) {
     }
   }
 
+  async function previewItem(itemId, slot) {
+    if (!['body', 'head', 'hand', 'foot'].includes(slot)) {
+      setMessage(`No se puede previsualizar la ranura '${slot}'.`, 'error');
+      return;
+    }
+    outfitState.entries[slot] = itemId;
+    if (viewSideTab !== 'outfit') {
+      await setSideTab('outfit');
+    } else {
+      syncOutfitControls();
+      await buildOutfit();
+    }
+  }
+
   /* ---------------- init ---------------- */
 
   function init() {
@@ -1541,5 +1555,5 @@ export function createViewer(ctx) {
     updateEditUi();
   }
 
-  return { init, loadList, select, setActive, view, loadProjects };
+  return { init, loadList, select, setActive, view, loadProjects, previewItem };
 }

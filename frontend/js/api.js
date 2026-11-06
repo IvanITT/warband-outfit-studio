@@ -47,8 +47,28 @@ export const api = {
     return request(`/api/items?${params}`);
   },
   item: (module, id) => request(`/api/items/${encodeURIComponent(id)}?module=${encodeURIComponent(module)}`),
+  itemEditable: (module, id) => request(
+    `/api/items/${encodeURIComponent(id)}/editable?module=${encodeURIComponent(module)}`,
+  ),
+  itemSchema: () => request('/api/item-schema'),
   validate: (module, ids) => request('/api/validate', { method: 'POST', body: { module, ids } }),
   projects: () => request('/api/projects'),
+  itemOverrides: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/items`),
+  itemOverride: (projectId, itemId) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/items/${encodeURIComponent(itemId)}`,
+  ),
+  saveItemOverride: (projectId, override) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/items`,
+    { method: 'POST', body: { override } },
+  ),
+  removeItemOverride: (projectId, itemId, confirm) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/items/${encodeURIComponent(itemId)}?confirm=${encodeURIComponent(confirm)}`,
+    { method: 'DELETE' },
+  ),
+  exportItemOverrides: (projectId, workspaceLabel) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/items/export`,
+    { method: 'POST', body: { workspaceLabel } },
+  ),
   createProject: (body) => request('/api/projects', { method: 'POST', body }),
 
   /* installation profiles */
