@@ -1,5 +1,8 @@
 # WARBand Outfit Studio — Progress log
 
+> **`PROJECT_PLAN.md` is the canonical project specification, roadmap and state.**
+> This file remains the historical phase journal: append a section per phase.
+
 This file is the running record of the project. **Append a new section for every phase.** Do not rewrite history: if a previous statement is wrong, add a correction entry.
 
 Format per phase:
@@ -200,3 +203,10 @@ Golden numbers asserted against the real installation:
 ### Milestone
 
 Phase 0 committed as a stable milestone. No game files were modified. `npm test` green.
+
+### Addendum — master plan adoption (2026-11-06)
+
+- `PROJECT_PLAN.md` created as the canonical specification, 10-phase roadmap, decision log and tracker; this journal remains the historical record.
+- Two small corrections after the first report: material-level validation issues are now attributed correctly, and local configuration was split into git-ignored `config/app.json` + committed `config/app.example.json`.
+- Roadmap reconciliation recorded in `PROJECT_PLAN.md` §9 / ADR-012: Phase 0 already delivered the parsers and installation/module detection, so Phase 1 targets the remaining Resource Engine work instead of rebuilding them. **Pending user approval.**
+- Milestone tag: `phase-0-foundation`.

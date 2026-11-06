@@ -35,7 +35,7 @@ node backend\server\index.js --open
 
 The server binds to `127.0.0.1:8791` (next free port if busy) and opens the UI.
 
-Configure the installation in `config/app.json` or with the `WARBAND_DIR` environment variable.
+Configure the installation by copying `config/app.example.json` to `config/app.json` and setting `installationPath`, or with the `WARBAND_DIR` environment variable. `config/app.json` is machine-specific and git-ignored.
 
 ## Tests
 
@@ -69,6 +69,7 @@ backups/      automatic project backups
 
 ## Documentation
 
+- [Project plan (canonical)](PROJECT_PLAN.md)
 - [Architecture](docs/architecture/ARCHITECTURE.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)

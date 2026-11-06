@@ -155,6 +155,7 @@ export async function resolveItemChain(context) {
         );
         meshIssues.push('WB-E-002');
       } else {
+        const materialStart = issues.length;
         const shaderExists = index.shaders.has((materialEntry.shader ?? '').toLowerCase());
         if (!shaderExists) {
           issues.push(
@@ -241,7 +242,7 @@ export async function resolveItemChain(context) {
           brf: materialEntry.brf,
           shader: materialEntry.shader,
           textures: resolvedTextures,
-          issues: meshIssues.slice(),
+          issues: issues.slice(materialStart).map((entry) => entry.code),
         };
       }
     }

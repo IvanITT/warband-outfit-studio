@@ -11,10 +11,14 @@
 Priority order used by the engine:
 
 1. `WARBAND_DIR` environment variable
-2. `installationPath` in `config/app.json`
+2. `installationPath` in `config/app.json` (local, git-ignored)
 3. well-known paths (`C:/Games/...`, Program Files, Steam, GOG, Documents)
 
-`config/app.json`:
+Create the local configuration from the committed example:
+
+```bat
+copy config\app.example.json config\app.json
+```
 
 ```json
 {
@@ -24,7 +28,7 @@ Priority order used by the engine:
 }
 ```
 
-Forward slashes are recommended in JSON.
+Forward slashes are recommended in JSON. `installationPath` may be `null` when auto-detection finds the game.
 
 ## Run
 
