@@ -70,6 +70,11 @@ const CATEGORY_LABEL = {
   other: 'Otro',
 };
 
+/** Warband stores spaces as `_`; show readable names without touching ids. */
+function displayName(name) {
+  return String(name).replace(/_/g, ' ');
+}
+
 function badge(text, tone = '') {
   return el('span', { class: `badge ${tone}`.trim(), text });
 }
@@ -220,7 +225,7 @@ function renderItemList() {
         onclick: () => selectItem(item.id),
       },
       [
-        el('span', { class: 'name', text: item.name }),
+        el('span', { class: 'name', text: displayName(item.name) }),
         el('span', { class: 'id', text: item.id }),
         el('span', { class: 'meta' }, [
           el('span', { class: 'armor', text: armorValue ? String(armorValue) : '·' }),
@@ -267,7 +272,7 @@ function renderDetail({ item, chain }) {
   const armorValue = item.slot === 'head' ? item.headArmor : item.slot === 'foot' ? item.legArmor : item.bodyArmor;
   const header = el('div', { class: 'detail-header' }, [
     el('div', { class: 'detail-title' }, [
-      el('h2', { text: item.name }),
+      el('h2', { text: displayName(item.name) }),
       el('div', { class: 'item-id', text: item.id }),
       el('div', { class: 'badges' }, [
         badge(SLOT_LABEL[item.slot] ?? item.slot, 'accent'),

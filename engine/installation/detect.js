@@ -7,6 +7,7 @@
 
 import path from 'node:path';
 import os from 'node:os';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { exists, listDir, readJson, resolveCaseInsensitive, statSafe } from '../util/fsx.js';
 
@@ -96,9 +97,11 @@ export async function describeInstallation(rootPath) {
   const optional = async (name) => resolveCaseInsensitive(rootPath, name);
 
   const userDataDir = path.join(os.homedir(), 'Documents', 'Mount&Blade Warband');
+  const baseName = path.basename(rootPath).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'warband';
+  const pathHash = createHash('sha1').update(rootPath.toLowerCase()).digest('hex').slice(0, 8);
 
   return {
-    id: rootPath.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(-48),
+    id: `${baseName}-${pathHash}`.slice(0, 64),
     rootPath,
     executablePath,
     version,

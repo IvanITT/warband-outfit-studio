@@ -80,7 +80,7 @@ C:\Users\52777\Desktop\warband-outfit-studio\
 | Cross-file index | merge `CommonRes` + module `Resource`, case-insensitive lookups, persistent cache |
 | Texture resolution | module → game → languages, `.dds` optional, numbered pages |
 | DDS parsing | width, height, mipmaps, format, DX10 |
-| Validation | 13 rules (errors/warnings/infos), entity-referenced issues |
+| Validation | 15 rules (6 errors, 5 warnings, 4 infos), entity-referenced issues |
 | Projects | create/list/load/save, atomic writes, automatic backups, id validation |
 | HTTP API | 11 endpoints, stable error envelope, CSP, loopback-only |
 | UI | module selector, wearable browser (search + slot/category filters), item stats, asset chain, validation panel, engine status |
@@ -150,6 +150,7 @@ Golden numbers asserted against the real installation:
 | Operation | Time |
 |---|---:|
 | Full `CommonRes` cold parse (Node) | ~0.5 s |
+| Viking Conquest (398 BRF, 563 MB) cold parse | ~1.75 s |
 | Warm index load + merge + texture index | ~0.2 s |
 | Item detail (chain + DDS headers) | < 10 ms |
 | `npm test` (40 tests) | ~4.2 s |

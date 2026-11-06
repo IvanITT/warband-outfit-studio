@@ -51,7 +51,7 @@ export async function serveStatic(res, rootDir, urlPath) {
   res.writeHead(200, {
     'Content-Type': MIME[ext] ?? 'application/octet-stream',
     'Content-Length': fileStat.size,
-    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300',
+    'Cache-Control': 'no-cache',
     'X-Content-Type-Options': 'nosniff',
   });
   createReadStream(filePath).pipe(res);
