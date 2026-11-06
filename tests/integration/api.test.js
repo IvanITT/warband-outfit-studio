@@ -276,6 +276,16 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   const buildDetailResponse = await fetch(`${base}/api/builds/${build.buildId}`);
   const buildDetail = await buildDetailResponse.json();
   assert.equal(buildDetail.manifest.projectId, created.project.id);
+  const buildDiffResponse = await fetch(`${base}/api/builds/${build.buildId}/diff`);
+  const buildDiff = await buildDiffResponse.json();
+  assert.ok(buildDiff.files.some((file) => file.kind === 'items'));
+  const buildPruneResponse = await fetch(`${base}/api/builds/prune`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keep: 1, confirm: 'PRUNE_BUILDS' }),
+  });
+  assert.equal(buildPruneResponse.status, 200);
+  assert.ok((await buildPruneResponse.json()).remaining >= 1);
 
   const itemOverrideDelete = await fetch(
     `${base}/api/projects/${created.project.id}/items/itm_mail_shirt?confirm=itm_mail_shirt`,
@@ -292,6 +302,14 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
     body: JSON.stringify({ project: project.project }),
   });
   assert.equal(putResponse.status, 200);
+
+  const pruneBackupsResponse = await fetch(`${base}/api/backups/prune`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keep: 5, confirm: 'PRUNE_BACKUPS' }),
+  });
+  assert.equal(pruneBackupsResponse.status, 200);
+  assert.equal((await pruneBackupsResponse.json()).projects.keep, 5);
 
   const backups = await readdir(path.join(projectRoot, 'backups', 'projects'));
   assert.ok(backups.length >= 1);

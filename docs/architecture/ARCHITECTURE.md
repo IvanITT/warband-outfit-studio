@@ -248,6 +248,10 @@ The cache is derived data and safe to delete.
 | POST | `/api/projects/:id/build` | validate and build a workspace overlay/module |
 | GET | `/api/builds` | list build workspaces |
 | GET | `/api/builds/:id` | read a build manifest and log |
+| GET | `/api/builds/:id/diff` | source vs built byte/hash diff |
+| POST | `/api/builds/:id/rollback` | restore the build's project snapshot |
+| POST | `/api/builds/prune` | keep the newest N builds |
+| POST | `/api/backups/prune` | keep the newest N backups per group |
 | GET/POST | `/api/projects/:id/outfits` | list/save outfits |
 | GET/DELETE | `/api/projects/:id/outfits/:outfitId` | load/delete (typed confirmation) |
 

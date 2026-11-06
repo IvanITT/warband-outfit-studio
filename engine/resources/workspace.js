@@ -16,7 +16,7 @@
  */
 
 import path from 'node:path';
-import { copyFile, readFile, rename, writeFile as fsWriteFile } from 'node:fs/promises';
+import { copyFile, readFile, rename, unlink, writeFile as fsWriteFile } from 'node:fs/promises';
 import { ensureDir, exists, listDir, listFiles, readJson, sha256File, statSafe, writeJsonAtomic } from '../util/fsx.js';
 import { slugify } from '../util/slug.js';
 
@@ -278,6 +278,40 @@ export class WorkspaceStore {
 
     backups.sort((a, b) => String(b.backedUpAt).localeCompare(String(a.backedUpAt)));
     return backups;
+  }
+
+  /**
+   * Keep the newest `keep` backups per workspace file.
+   * @param {number} keep
+   */
+  async pruneBackups(keep = 5) {
+    const count = Math.max(1, Math.min(1000, Number(keep) || 5));
+    const backups = await this.listBackups();
+    /** @type {Map<string, any[]>} */
+    const groups = new Map();
+    for (const backup of backups) {
+      const key = `${backup.workspaceId}:${backup.file}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(backup);
+    }
+    const removed = [];
+    for (const entries of groups.values()) {
+      for (const backup of entries.slice(count)) {
+        try {
+          await unlink(backup.path);
+          if (backup.metaPath) await unlink(backup.metaPath);
+          removed.push({
+            kind: 'workspace',
+            workspaceId: backup.workspaceId,
+            file: backup.file,
+            path: backup.path,
+          });
+        } catch {
+          /* already gone */
+        }
+      }
+    }
+    return { keep: count, removed, remaining: backups.length - removed.length };
   }
 
   /**

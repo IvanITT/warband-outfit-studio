@@ -64,6 +64,7 @@ function statusFor(code) {
     case 'INVALID_ITEM':
     case 'NO_ITEM_OVERRIDES':
     case 'BUILD_VALIDATION_FAILED':
+    case 'BUILD_PROJECT_MISMATCH':
     case 'MISSING_TEXTURE':
       return 400;
     case 'BACKUP_CORRUPT':
@@ -219,7 +220,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const started = await startServer();
   console.log('');
-  console.log('  WARBand Outfit Studio — Phase 8');
+  console.log('  WARBand Outfit Studio — Phase 9');
   console.log(`  ${started.url}`);
   if (!started.engine.installation) {
     console.log('  WARNING: no Warband installation detected. See /api/status for candidates.');

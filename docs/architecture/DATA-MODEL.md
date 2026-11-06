@@ -373,6 +373,7 @@ BuildManifest
   mode                overlay | module
   createdAt
   sourceInstallation
+  projectSnapshot     project.json
   overrides           { meshes, materials, items }
   summary             { files, meshes, materials, items }
   warnings[], errors[]
@@ -382,6 +383,11 @@ BuildManifest
 `mode:"overlay"` contains only changed assets. `mode:"module"` additionally
 contains a full copy of the source module before the overlay is applied. Both
 are workspace artifacts; no path outside `workspace/` is written.
+
+`project.json` is the exact project snapshot used for the build. Rollback
+restores it through the normal project storage path (which backs up the current
+project first). Build diff records source path, existence, bytes and SHA-256;
+textures with project/game sources are marked non-comparable.
 
 ## 8. Installation profiles
 ```

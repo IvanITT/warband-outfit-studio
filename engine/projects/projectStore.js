@@ -8,7 +8,7 @@
  */
 
 import path from 'node:path';
-import { readFile, writeFile, copyFile } from 'node:fs/promises';
+import { readFile, writeFile, copyFile, unlink } from 'node:fs/promises';
 import { ensureDir, exists, listDir, readJson, sha256File, statSafe, writeJsonAtomic } from '../util/fsx.js';
 import { slugify as baseSlugify } from '../util/slug.js';
 
@@ -510,6 +510,34 @@ export class ProjectStore {
     }
     backups.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     return backups;
+  }
+
+  /**
+   * Keep the newest `keep` backups per project id.
+   * @param {number} keep
+   */
+  async pruneBackups(keep = 5) {
+    const count = Math.max(1, Math.min(1000, Number(keep) || 5));
+    const backups = await this.listBackups();
+    /** @type {Map<string, any[]>} */
+    const groups = new Map();
+    for (const backup of backups) {
+      const key = String(backup.id ?? 'unknown');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(backup);
+    }
+    const removed = [];
+    for (const entries of groups.values()) {
+      for (const backup of entries.slice(count)) {
+        try {
+          await unlink(backup.path);
+          removed.push({ kind: 'project', id: backup.id, path: backup.path });
+        } catch {
+          /* already gone */
+        }
+      }
+    }
+    return { keep: count, removed, remaining: backups.length - removed.length };
   }
 
   /**

@@ -8,6 +8,7 @@
 
 import path from 'node:path';
 import { readFile, cp, mkdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { listModules, findModule } from './modules/moduleRegistry.js';
 import { detectInstallation, describeInstallation } from './installation/detect.js';
 import { ProfileStore } from './installation/profileStore.js';
@@ -66,6 +67,11 @@ function boneLocalMatrix(bone) {
     bone.x[2], bone.y[2], bone.z[2], bone.t[2],
     0, 0, 0, 1,
   ]);
+}
+
+/** @param {Buffer} buffer */
+function sha256Buffer(buffer) {
+  return createHash('sha256').update(buffer).digest('hex');
 }
 
 /**
@@ -771,6 +777,42 @@ export class WarbandEngine {
       }
     }
 
+    // Ensure the module loads every changed BRF by basename. This is needed
+    // when a CommonRes pack is overridden inside the module Resource folder.
+    const requiredResources = new Set(
+      artifacts
+        .filter((artifact) => artifact.kind === 'mesh' || artifact.kind === 'material')
+        .map((artifact) => path.basename(artifact.target).replace(/\.brf$/i, '').toLowerCase()),
+    );
+    const loadedResources = new Set(
+      [...(module.commonResources ?? []), ...(module.moduleResources ?? [])]
+        .map((name) => String(name).replace(/\.brf$/i, '').toLowerCase()),
+    );
+    const missingResources = [...requiredResources].filter((name) => !loadedResources.has(name));
+    if (missingResources.length > 0) {
+      try {
+        const iniSource = await readFile(module.moduleIniPath);
+        const eol = iniSource.includes(Buffer.from('\r\n')) ? '\r\n' : '\n';
+        let prefix = '';
+        if (iniSource.length > 0 && iniSource[iniSource.length - 1] !== 0x0a) prefix = eol;
+        const addition = missingResources
+          .map((name) => `load_resource = ${name}`)
+          .join(eol);
+        const iniBuffer = Buffer.concat([
+          iniSource,
+          Buffer.from(`${prefix}${addition}${eol}`, 'utf8'),
+        ]);
+        artifacts.push({
+          kind: 'config',
+          source: path.relative(installationRoot, module.moduleIniPath).replace(/\\/g, '/'),
+          target: `${moduleRoot}/module.ini`,
+          buffer: iniBuffer,
+        });
+      } catch (error) {
+        errors.push(`module.ini: ${error.message}`);
+      }
+    }
+
     const targets = new Map();
     const uniqueArtifacts = [];
     for (const artifact of artifacts) {
@@ -819,6 +861,11 @@ export class WarbandEngine {
       });
     }
 
+    await this.workspaces.writeFile(
+      workspace.id,
+      'project.json',
+      JSON.stringify(project, null, 2),
+    );
     const manifest = {
       schemaVersion: 1,
       id: workspace.id,
@@ -829,6 +876,7 @@ export class WarbandEngine {
       mode: copyModule ? 'module' : 'overlay',
       createdAt: new Date().toISOString(),
       sourceInstallation: this.requireInstallation().rootPath,
+      projectSnapshot: 'project.json',
       overrides: {
         meshes: project.meshes.length,
         materials: project.materials.length,
@@ -913,6 +961,134 @@ export class WarbandEngine {
       error.code = 'BUILD_NOT_FOUND';
       throw error;
     }
+  }
+
+  /** @param {string} projectId @param {string} buildId @param {string} confirm */
+  async rollbackBuild(projectId, buildId, confirm) {
+    if (confirm !== buildId) {
+      const error = new Error('Confirmation required: pass the build id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const { manifest } = await this.getBuild(buildId);
+    if (manifest.projectId !== projectId) {
+      const error = new Error(`Build '${buildId}' belongs to project '${manifest.projectId}'.`);
+      // @ts-expect-error machine-readable
+      error.code = 'BUILD_PROJECT_MISMATCH';
+      throw error;
+    }
+    const raw = await this.workspaces.readFile(buildId, manifest.projectSnapshot ?? 'project.json');
+    const snapshot = JSON.parse(raw.toString('utf8'));
+    if (snapshot.id !== projectId) {
+      const error = new Error('Build project snapshot id does not match the project.');
+      // @ts-expect-error machine-readable
+      error.code = 'BUILD_PROJECT_MISMATCH';
+      throw error;
+    }
+    await this.projects.save(snapshot);
+    return { projectId, restoredFrom: buildId, name: snapshot.name };
+  }
+
+  /**
+   * Delete all but the newest `keep` build workspaces.
+   * @param {number} keep
+   * @param {string} confirm Must equal `PRUNE_BUILDS`.
+   */
+  async pruneBuilds(keep = 5, confirm = '') {
+    if (confirm !== 'PRUNE_BUILDS') {
+      const error = new Error('Confirmation required: pass confirm=PRUNE_BUILDS.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const count = Math.max(1, Math.min(1000, Number(keep) || 5));
+    const { builds } = await this.listBuilds();
+    const removed = [];
+    for (const build of builds.slice(count)) {
+      await this.workspaces.remove(build.id, build.id);
+      removed.push(build.id);
+    }
+    return { keep: count, removed, remaining: builds.length - removed.length };
+  }
+
+  /**
+   * Prune old project and workspace backups.
+   * @param {number} keep
+   * @param {string} confirm Must equal `PRUNE_BACKUPS`.
+   */
+  async pruneBackups(keep = 5, confirm = '') {
+    if (confirm !== 'PRUNE_BACKUPS') {
+      const error = new Error('Confirmation required: pass confirm=PRUNE_BACKUPS.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const projects = await this.projects.pruneBackups(keep);
+    const workspaces = await this.workspaces.pruneBackups(keep);
+    return {
+      keep: Math.max(1, Math.min(1000, Number(keep) || 5)),
+      projects,
+      workspaces,
+    };
+  }
+
+  /** @param {string} buildId */
+  async diffBuild(buildId) {
+    const { manifest } = await this.getBuild(buildId);
+    const root = path.resolve(this.requireInstallation().rootPath);
+    const files = [];
+    let changed = 0;
+    let added = 0;
+    let unchanged = 0;
+    let unavailable = 0;
+
+    for (const file of manifest.files ?? []) {
+      const builtBuffer = await this.workspaces.readFile(buildId, file.target);
+      const builtHash = sha256Buffer(builtBuffer);
+      const source = String(file.source ?? '');
+      const comparable = !['game', 'project'].includes(source);
+      let sourceExists = false;
+      let sourceBytes = null;
+      let sourceHash = null;
+      if (comparable) {
+        const sourcePath = path.resolve(root, source);
+        if (sourcePath === root || sourcePath.startsWith(root + path.sep)) {
+          try {
+            const sourceBuffer = await readFile(sourcePath);
+            sourceExists = true;
+            sourceBytes = sourceBuffer.length;
+            sourceHash = sha256Buffer(sourceBuffer);
+          } catch {
+            /* added file */
+          }
+        }
+      }
+      if (!comparable) unavailable += 1;
+      else if (!sourceExists) {
+        changed += 1;
+        added += 1;
+      } else if (sourceHash !== builtHash) changed += 1;
+      else unchanged += 1;
+      files.push({
+        kind: file.kind,
+        source: file.source,
+        target: file.target,
+        comparable,
+        sourceExists,
+        sourceBytes,
+        builtBytes: builtBuffer.length,
+        sourceSha256: sourceHash,
+        builtSha256: builtHash,
+        changed: comparable && (!sourceExists || sourceHash !== builtHash),
+      });
+    }
+
+    return {
+      buildId,
+      summary: { files: files.length, changed, added, unchanged, unavailable },
+      files,
+    };
   }
 
   /**

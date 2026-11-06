@@ -788,3 +788,77 @@ New suite:
 ### Milestone
 
 Tag `phase-8-builder`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 9 — Validation, Backup, Recovery & Hardening
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Make builds recoverable and bounded: retain/prune artifacts and backups,
+restore build project snapshots, compare sources with built files, and ensure
+changed BRFs are loaded by the module.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Build snapshot | `project.json` saved with every build |
+| Rollback | `rollbackBuild` restores the snapshot through project backup flow |
+| Diff | `diffBuild` reports source/built bytes and SHA-256; project/game textures non-comparable |
+| Build retention | keep-N build pruning with `PRUNE_BUILDS` |
+| Backup retention | project/workspace keep-N pruning with `PRUNE_BACKUPS` |
+| Module integration | missing `load_resource` entries appended to built `module.ini` |
+| UI | build diff/rollback/prune controls; backups prune control |
+| Tests | 114 automated tests |
+
+### Tests
+
+`npm test` → **114 / 114 passing** (~7.7 s).
+
+New coverage:
+
+- build rollback, diff and prune;
+- module.ini missing-resource injection;
+- project and workspace backup pruning;
+- API diff/prune routes.
+
+### Verified against real data
+
+- Rollback restored `Built_Mail` after a post-build rename.
+- Diff identified changed item/material/mesh files; textures marked unavailable.
+- `core_ui_meshes` was added to the built `module.ini`.
+- Keep-N pruning retained the newest build and removed older workspaces.
+- Source game files remained read-only.
+
+### Findings
+
+1. **Build snapshots make project rollback deterministic** (F-43).
+2. **Byte/SHA-256 diff is sufficient for a binary build audit** (F-44).
+3. **Native does not list every CommonRes pack**, so module.ini append is
+   required for some overlays (F-45).
+4. **Keep-N retention needs typed confirmation** to avoid surprising deletion
+   (F-46).
+
+### Known limitations
+
+- Rollback restores project state, not built files; rebuild afterwards.
+- Diff is not a semantic mesh/texture diff.
+- `module.ini` integration only appends; it does not remove/reorder entries.
+- Backup pruning leaves empty `.backups` timestamp directories.
+- Builds still do not write into the live game.
+
+### Documentation updated
+
+- `docs/architecture/BUILDER.md` expanded with recovery/retention/diff.
+- `PROJECT_PLAN.md` (Phase 9 complete, Phase 10 proposed, ADR-040…043,
+  findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`,
+  `docs/development/{DECISIONS,SETUP}.md`, `README.md`, version 0.10.0.
+
+### Milestone
+
+Tag `phase-9-hardening`. No game files were modified. `npm test` green.

@@ -425,3 +425,52 @@ default; overlays are fast and sufficient for review.
 
 **Consequences:** authors who want a standalone deployable module choose the
 full-copy mode; the build manifest records the mode.
+
+## ADR-040 — Build snapshots enable project rollback
+
+**Decision:** every build stores `project.json`, the exact project document used
+to create it. Rollback restores that snapshot through the normal project save
+path, which first creates a backup of the current revision.
+
+**Rationale:** a build is a point-in-time artifact; reproducing it requires the
+project overrides that produced it. Storing a snapshot makes recovery
+deterministic while keeping the ordinary project backup mechanism intact.
+
+**Consequences:** rollback changes project overrides, not previously built
+workspace files. A new build is required to produce artifacts after rollback.
+
+## ADR-041 — Retention is keep-N with typed confirmation
+
+**Decision:** build workspaces and project/workspace backups are pruned with a
+keep-N rule (`PRUNE_BUILDS` / `PRUNE_BACKUPS`). Deletion is never automatic.
+
+**Rationale:** a bounded but explicit retention policy prevents unbounded disk
+growth without surprising destructive actions. The game installation is not
+involved.
+
+**Consequences:** older revisions disappear permanently; the user must type the
+confirmation phrase. Empty backup directories may remain.
+
+## ADR-042 — Diff compares bytes and SHA-256
+
+**Decision:** build diff reports source existence, sizes and SHA-256 versus the
+built output. Texture entries whose source is a project import or a game lookup
+are marked non-comparable.
+
+**Rationale:** hashes are exact and cheap, work for every binary format and do
+not require a semantic BRF diff. This is enough to audit what changed.
+
+**Consequences:** it cannot explain *which vertices/material fields* changed;
+that requires a later format-aware diff.
+
+## ADR-043 — Builds append missing `load_resource` entries
+
+**Decision:** when a changed BRF basename is not already listed in the module's
+`load_resource`/`load_mod_resource` entries, the build appends
+`load_resource = <basename>` to the built `module.ini`.
+
+**Rationale:** overlay builds place CommonRes packs in module `Resource/`; they
+must be loaded by name. Appending preserves existing formatting and order.
+
+**Consequences:** no removal or reordering is attempted; duplicate or stale
+entries remain the author's responsibility.

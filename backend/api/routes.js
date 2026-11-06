@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.9.0',
-        phase: 8,
+        version: '0.10.0',
+        phase: 9,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -239,6 +239,13 @@ export function createApi(engine) {
       return { ok: true, ...(await engine.listBackups()) };
     }
 
+    if (method === 'POST' && urlPath === '/api/backups/prune') {
+      return {
+        ok: true,
+        ...(await engine.pruneBackups(body?.keep ?? 5, body?.confirm ?? '')),
+      };
+    }
+
     if (method === 'POST' && urlPath === '/api/backups/restore') {
       if (!body?.kind || !body?.path || !body?.confirm) {
         const error = new Error('Body must contain { kind, path, confirm }');
@@ -322,6 +329,30 @@ export function createApi(engine) {
 
     if (method === 'GET' && urlPath === '/api/builds') {
       return { ok: true, ...(await engine.listBuilds()) };
+    }
+
+    if (method === 'POST' && urlPath === '/api/builds/prune') {
+      return {
+        ok: true,
+        ...(await engine.pruneBuilds(body?.keep ?? 5, body?.confirm ?? '')),
+      };
+    }
+
+    const buildDiff = urlPath.match(/^\/api\/builds\/([^/]+)\/diff$/);
+    if (method === 'GET' && buildDiff) {
+      return { ok: true, ...(await engine.diffBuild(decodeURIComponent(buildDiff[1]))) };
+    }
+
+    const buildRollback = urlPath.match(/^\/api\/builds\/([^/]+)\/rollback$/);
+    if (method === 'POST' && buildRollback) {
+      return {
+        ok: true,
+        ...(await engine.rollbackBuild(
+          body?.projectId ?? '',
+          decodeURIComponent(buildRollback[1]),
+          body?.confirm ?? '',
+        )),
+      };
     }
 
     const buildDetail = urlPath.match(/^\/api\/builds\/([^/]+)$/);

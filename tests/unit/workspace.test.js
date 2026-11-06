@@ -41,6 +41,19 @@ test('backs up the previous revision before overwriting', async () => {
   assert.equal(stamps.length, 1);
 });
 
+test('prunes old workspace backups per file', async () => {
+  const { store } = await makeStore();
+  const workspace = await store.create({ label: 'Prune backups' });
+  for (let revision = 0; revision < 4; revision += 1) {
+    await store.writeFile(workspace.id, 'Resource/a.bin', Buffer.from(String(revision)));
+  }
+  assert.equal((await store.listBackups()).length, 3);
+  const result = await store.pruneBackups(1);
+  assert.equal(result.removed.length, 2);
+  assert.equal(result.remaining, 1);
+  assert.equal((await store.listBackups()).length, 1);
+});
+
 test('rejects absolute paths, traversal and invalid ids', async () => {
   const { store } = await makeStore();
   const workspace = await store.create({ label: 'Security' });

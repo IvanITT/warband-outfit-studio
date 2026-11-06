@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.9.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.10.0" />
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 8</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 9</p>
         </div>
       </div>
 
@@ -331,7 +331,12 @@
             <input id="build-copy-module" type="checkbox" />
             Copia completa del módulo
           </label>
+          <label class="build-keep">
+            <span>Conservar</span>
+            <input id="build-keep" type="number" min="1" max="1000" value="5" />
+          </label>
           <button id="build-start" class="primary" type="button">Construir</button>
+          <button id="build-prune" class="ghost small" type="button">Limpiar builds</button>
           <button id="build-refresh" class="ghost small" type="button">Actualizar</button>
         </div>
         <p class="hint build-hint">
@@ -372,6 +377,7 @@
           <h2>Copias de seguridad</h2>
           <div class="panel-actions">
             <span id="backups-count" class="counter">—</span>
+            <button id="backups-prune" class="ghost small" type="button">Limpiar</button>
             <button id="backups-refresh" class="ghost small" type="button">Actualizar</button>
           </div>
         </div>
@@ -382,7 +388,7 @@
     <footer class="statusbar">
       <span id="status-text">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 8 · Build</span>
+      <span class="status-meta">Fase 9 · Hardening</span>
     </footer>
   </div>
 
@@ -409,6 +415,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.9.0"></script>
+  <script type="module" src="/js/app.js?v=0.10.0"></script>
 </body>
 </html>

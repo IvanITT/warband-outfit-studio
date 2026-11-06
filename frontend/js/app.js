@@ -69,6 +69,8 @@ const dom = {
   buildProject: document.getElementById('build-project'),
   buildCopyModule: document.getElementById('build-copy-module'),
   buildStart: document.getElementById('build-start'),
+  buildPrune: document.getElementById('build-prune'),
+  buildKeep: document.getElementById('build-keep'),
   buildRefresh: document.getElementById('build-refresh'),
   buildList: document.getElementById('build-list'),
   buildResult: document.getElementById('build-result'),
@@ -162,6 +164,7 @@ const dom = {
   backupsCount: document.getElementById('backups-count'),
   backupsList: document.getElementById('backups-list'),
   backupsRefresh: document.getElementById('backups-refresh'),
+  backupsPrune: document.getElementById('backups-prune'),
   // workspaces
   workspacesCount: document.getElementById('workspaces-count'),
   workspacesList: document.getElementById('workspaces-list'),
@@ -237,6 +240,8 @@ const buildView = createBuildView({
     buildProject: dom.buildProject,
     buildCopyModule: dom.buildCopyModule,
     buildStart: dom.buildStart,
+    buildPrune: dom.buildPrune,
+    buildKeep: dom.buildKeep,
     buildRefresh: dom.buildRefresh,
     buildList: dom.buildList,
     buildResult: dom.buildResult,
@@ -246,7 +251,7 @@ const buildView = createBuildView({
 
 const backups = createBackupsView({
   api,
-  dom: { count: dom.backupsCount, list: dom.backupsList, refresh: dom.backupsRefresh },
+  dom: { count: dom.backupsCount, list: dom.backupsList, refresh: dom.backupsRefresh, prune: dom.backupsPrune },
   setStatus,
 });
 

@@ -105,29 +105,59 @@ use it.
 | POST | `/api/projects/:id/build` | `{ copyModule?, label? }` → build manifest |
 | GET | `/api/builds` | list build workspaces |
 | GET | `/api/builds/:id` | manifest + build log |
+| GET | `/api/builds/:id/diff` | source vs built byte/hash diff |
+| POST | `/api/builds/:id/rollback` | restore `project.json` from a build |
+| POST | `/api/builds/prune` | keep the newest N builds |
+| POST | `/api/backups/prune` | keep the newest N backups per group |
 
 Errors use the normal envelope; build validation errors are HTTP 400 with
 `details.errors`.
 
-## 7. Verification
+## 7. Recovery and retention
 
-- `integration/build` (2):
+- Every build stores `project.json`, the exact project snapshot used for the
+  build. `POST /api/builds/:id/rollback` restores that snapshot through
+  `ProjectStore.save`, which first backs up the current project. Confirmation is
+  the build id.
+- `POST /api/builds/prune` requires `confirm: "PRUNE_BUILDS"` and keeps the
+  newest `keep` build workspaces. Older folders are deleted via the guarded
+  WorkspaceStore API.
+- `POST /api/backups/prune` requires `confirm: "PRUNE_BACKUPS"` and keeps the
+  newest `keep` project backups per project and workspace backups per
+  workspace file. It does not remove live projects/workspaces.
+- `GET /api/builds/:id/diff` compares each manifest file's built bytes and
+  SHA-256 with its source where a source path exists. Texture entries sourced
+  from a project/game are marked non-comparable.
+- Missing `load_resource` entries are appended to the built `module.ini` so an
+  overlay that moves a CommonRes pack into module `Resource/` is loaded.
+  Existing entries are never removed or reordered.
+
+## 8. Verification
+
+- `integration/build` (3):
   - real mesh + material + item overrides produce an overlay with 4+ artifacts;
   - material fields and item name are present in the output;
   - source BRF hashes remain unchanged;
+  - `module.ini` receives a missing `load_resource` entry;
+  - rollback restores the build's project snapshot;
+  - diff reports changed files;
+  - retention keeps one build and deletes older workspaces;
   - invalid item mesh stops the build and creates no workspace.
-- `integration/api` covers `POST /build`, `GET /builds` and `GET /builds/:id`.
+- `integration/api` covers build create/list/detail/diff/prune.
 - Full-copy mode was exercised on Native (75.6 MB, `module.ini` present).
+- `unit/projectStore` and `unit/workspace` cover backup pruning.
 
-## 8. Limitations
+## 9. Limitations
 
 - The game installation is never written; deployment is manual.
-- Overlay builds expect the module's `module.ini` to load the changed BRF
-  basenames. Existing `load_resource` entries usually cover Native assets; a
-  future phase can rewrite `module.ini` automatically.
+- `module.ini` integration only appends missing `load_resource` entries; it does
+  not remove or reorder existing entries.
 - Changed CommonRes BRFs are placed in the module `Resource/` directory; a
   module copy must use a module that loads that basename.
-- No automatic `module.ini` rewrite, build signing, diff viewer or rollback yet.
+- Diff is byte/hash based; it does not visually compare meshes or textures.
+- Rollback restores the project snapshot, not previously built workspace files;
+  rebuild after a rollback when a new artifact is needed.
 - Full-copy mode is intentionally explicit because modules can be large
   (Viking Conquest/Napoleonic Wars are multi-GB).
-- Build workspaces are retained until manually removed; retention is Phase 9.
+- Backup pruning leaves empty `.backups` timestamp folders until a later
+  cleanup pass.

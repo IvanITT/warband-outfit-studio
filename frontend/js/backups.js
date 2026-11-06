@@ -99,8 +99,28 @@ export function createBackupsView(ctx) {
     dom.count.textContent = String(data.projects.length + data.workspaces.length);
   }
 
+  async function prune() {
+    const keep = Number(window.prompt('Conservar las N copias más recientes por proyecto/archivo:', '5'));
+    if (!Number.isInteger(keep) || keep < 1) return;
+    const confirm = window.prompt(`Escribe PRUNE_BACKUPS para conservar ${keep} copias por grupo:`, '');
+    if (confirm !== 'PRUNE_BACKUPS') {
+      setStatus('Limpieza de copias cancelada.');
+      return;
+    }
+    try {
+      const result = await api.pruneBackups(keep, confirm);
+      setStatus(
+        `Copias eliminadas: ${result.projects.removed.length} proyectos, ${result.workspaces.removed.length} workspaces.`,
+      );
+      await load();
+    } catch (error) {
+      setStatus(`No se pudieron limpiar: ${error instanceof ApiError ? error.message : String(error)}`);
+    }
+  }
+
   function init() {
     dom.refresh.addEventListener('click', () => load());
+    dom.prune?.addEventListener('click', prune);
   }
 
   async function ensureLoaded() {

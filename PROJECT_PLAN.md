@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 8 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 9**
+> Current phase: **Phase 9 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 10**
 
 ---
 
@@ -341,11 +341,18 @@ Completed:
 
 **Exit met:** a real Native project with mesh + material + item overrides produced a workspace overlay (4+ artifacts) with the edited material and item, source hashes unchanged; full-copy mode verified on Native (75.6 MB, `module.ini` present).
 
-### Phase 9 — Validation, Backup, Recovery & Automated Testing
+### Phase 9 — Validation, Backup, Recovery & Hardening — **COMPLETE (2026-11-06)**
 
-- Expand rules and coverage; backup metadata, hashes, restore, build history, rollback.
-- End-to-end tests for build/restore/error paths.
-- **Exit:** destructive operations are reversible and tested.
+Completed:
+
+- Build retention: keep N newest build workspaces; typed `PRUNE_BUILDS` confirmation.
+- Backup retention: per-project and per-workspace-file pruning with `PRUNE_BACKUPS`.
+- Build rollback: build stores `project.json`; rollback restores it with a normal project backup.
+- Build diff: source vs built bytes/SHA-256, changed/added/unchanged/unavailable.
+- `module.ini` integration: adds missing `load_resource` entries for changed BRF basenames.
+- 114 automated tests.
+
+**Exit met:** build outputs retain their project snapshot and can be rolled back; diffs identify changed item/material/mesh/config files; retention removes old builds/backups with typed confirmation; missing resources are injected into `module.ini`; sources stay read-only.
 
 ### Phase 10 — Build, Launch & Production Polish
 
@@ -356,9 +363,9 @@ Completed:
 
 ## 9. Current Phase
 
-**Phase 8 is COMPLETE.** All Phase 8 deliverables are implemented, tested and documented.
+**Phase 9 is COMPLETE.** All Phase 9 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 9.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 10.
 
 ### Roadmap reconciliation (accepted)
 
@@ -613,27 +620,52 @@ the game is a deliberate manual copy, not an automated write (ADR-037).
 
 ---
 
-## 11. Pending Work
+### Phase 9 (2026-11-06)
 
-### Phase 9 (proposed, not authorized)
+**Hardening, retention, rollback and diff**
 
-1. **Hardening** — backup retention/pruning, build rollback and diff preview.
-2. **Recovery** — restore module/workspace/build snapshots with hash verification.
-3. **Validation expansion** — material/texture chain checks in the build gate.
-4. **Module integration** — optional `module.ini` resource rewriting.
-5. **Tests/docs** — destructive paths, retention, rollback, end-to-end recovery.
+- Build workspaces now include `project.json` (snapshot used by rollback).
+- `pruneBuilds(keep)` deletes older build workspaces with typed `PRUNE_BUILDS` confirmation.
+- `pruneBackups(keep)` prunes project backups and workspace file backups with `PRUNE_BACKUPS`.
+- `rollbackBuild(projectId, buildId)` restores the project snapshot from a build, creating a project backup first.
+- `diffBuild(buildId)` compares source vs built bytes and SHA-256, reporting changed/added/unchanged/unavailable.
+- Build adds missing `load_resource` entries to `module.ini` for changed BRF basenames.
+- Build view: retention controls, diff and rollback actions.
+- Copies view: backup pruning.
+- API: build diff/rollback/prune and backup prune.
+- 114 automated tests.
 
-### Explicitly out of Phase 9
+**Verification**
 
-Live game deployment, process patching, animation/troop/scene editors.
-
-### Backlog after Phase 9
-
-- Phase 10: packaging, first-run setup, logs, accessibility.
+- Rollback restored `Built_Mail` after a post-build rename.
+- Diff identified changed item/material/mesh entries; textures are marked non-comparable.
+- Pruning kept one build and removed older workspaces; project/workspace backup pruning kept one per group.
+- Missing `core_ui_meshes` resource was added to the built `module.ini`.
+- Sources remained read-only.
 
 ---
 
-## 12. Known Issues (after Phase 8)
+## 11. Pending Work
+
+### Phase 10 (proposed, not authorized)
+
+1. **Packaging** — Node SEA or equivalent launcher, no developer toolchain.
+2. **First-run setup** — guided installation detection, settings and logs.
+3. **Production polish** — accessibility, performance, error recovery UX.
+4. **Deployment workflow** — explicit, manual staging/export handoff if requested.
+5. **Tests/docs** — packaged build smoke tests and user guide.
+
+### Explicitly out of Phase 10
+
+Live game process patching, animation/troop/scene editors, cloud services.
+
+### Backlog after Phase 10
+
+- Post-1.0 specialized studios and animation work.
+
+---
+
+## 12. Known Issues (after Phase 9)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
@@ -669,7 +701,11 @@ Live game deployment, process patching, animation/troop/scene editors.
 | 30 | Overlay builds assume `module.ini` already loads changed BRF basenames | Medium | Phase 9 rewrite |
 | 31 | Full-copy builds can be multi-GB; explicit option only | Medium | Documented |
 | 32 | No build diff viewer, rollback or retention policy | Medium | Phase 9 |
-| 33 | Build validation checks override structure/chains but not every game shader/engine condition | Medium | Phase 9 |
+| 33 | Build validation checks override structure/chains but not every game shader/engine condition | Medium | Future validation work |
+| 34 | Rollback restores the project snapshot, not already-built workspace files | Medium | Rebuild after rollback |
+| 35 | Build diff is byte/hash based; no semantic mesh/texture diff viewer | Low | Future diff UI |
+| 36 | Backup pruning has no retention preview and leaves empty backup folders | Low | Phase 10 polish |
+| 37 | `module.ini` integration appends resources; it does not remove or reorder existing entries | Low | Future integration pass |
 
 ---
 
@@ -703,9 +739,11 @@ Live game deployment, process patching, animation/troop/scene editors.
 | Item preview | Base module item; override meshes/names need a rebuild | Add override-aware preview in a later pass |
 | Item validation | Mesh existence is checked, but material/texture chain health is delegated to the existing validator | Reuse full chain rules before build |
 | Build deployment | Workspace-only; no live module install | Phase 10 packaging/deploy workflow |
-| Build module.ini | Overlay relies on existing resource entries | Add resource rewrite in Phase 9 |
-| Build retention | Every build is kept under `workspace/` | Add pruning/retention in Phase 9 |
-| Build diff | Manifest lists files but no pre/post byte diff | Add diff viewer in Phase 9 |
+| Build module.ini | Appends missing `load_resource` entries; no removal/reordering | Future integration pass |
+| Build retention | Keep-N pruning implemented; no preview/undo | Phase 10 polish |
+| Build diff | Byte/hash diff implemented; no semantic mesh/texture diff | Future diff UI |
+| Build rollback | Project snapshot only; build files are immutable history | Rebuild after rollback |
+| Backup pruning | Per-project/per-file keep-N; empty directories remain | Phase 10 cleanup |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
 | Backups | No pruning/retention policy (ADR-020) | Phase 9 |
@@ -758,6 +796,10 @@ Live game deployment, process patching, animation/troop/scene editors.
 | ADR-037 | Builds write only to workspaces; deployment stays manual | Accepted (Phase 8) |
 | ADR-038 | Group overrides by source BRF | Accepted (Phase 8) |
 | ADR-039 | Full module copies are explicit | Accepted (Phase 8) |
+| ADR-040 | Builds store a project snapshot for rollback | Accepted (Phase 9) |
+| ADR-041 | Retention is keep-N with typed confirmation | Accepted (Phase 9) |
+| ADR-042 | Diff compares source bytes and SHA-256 | Accepted (Phase 9) |
+| ADR-043 | Builds append missing `load_resource` entries | Accepted (Phase 9) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -811,12 +853,16 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-40 | A full Native module copy is 75.6 MB and completes in ~2.2 s locally | manual copy test | **VERIFIED** | full-copy mode |
 | F-41 | CommonRes BRFs can be placed in the module `Resource/` by basename; Native already lists common resources in `module.ini` | Native `load_resource` entries | **LIKELY** | build layout |
 | F-42 | Build artifacts are fully described by target path + SHA-256 without re-parsing every output | manifest/log tests | **VERIFIED** | build manifest |
+| F-43 | A build project snapshot restores exactly the override set used for that build | rollback test | **VERIFIED** | `project.json` + rollback |
+| F-44 | Source-vs-build byte hashes provide a useful change report without parsing binaries | diff test | **VERIFIED** | `diffBuild` |
+| F-45 | Native `module.ini` already lists most CommonRes packs; unlisted packs need appended `load_resource` entries | `core_ui_meshes` build test | **VERIFIED** | module.ini integration |
+| F-46 | Keep-N pruning is safe when confirmation is required and newest entries are sorted first | backup/build prune tests | **VERIFIED** | retention |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **111 / 111 passing** (~5.5 s), zero dependencies.
+**Command:** `npm test` - **114 / 114 passing** (~7.7 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -824,11 +870,11 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `unit/itemKinds` | 5 | parsing, stats, byte-perfect round-trip, re-render, classification, errors |
 | `unit/itemFlags` | 6 | table provenance, real items, unknown bits, enum-vs-bit, zero capabilities |
 | `unit/brfWriter` | 7 | synthetic round-trip (v1/v0), spec presence, geometry, dirty material, flag guard |
-| `unit/workspace` | 5 | create/list/write, backup + hash, traversal, delete confirmation, missing workspace |
+| `unit/workspace` | 6 | create/list/write, backup + hash, prune, traversal, delete confirmation, missing workspace |
 | `unit/backups` | 3 | project backup/restore, workspace restore + tamper detection, path escapes |
 | `unit/moduleIni` | 2 | keys, comments, resources, versions, capabilities, duplicates |
 | `unit/dds` | 3 | DDS header, bad magic, mesh naming |
-| `unit/projectStore` | 4 | ids, create/load/list, backup-on-save, traversal rejection |
+| `unit/projectStore` | 5 | ids, create/load/list, backup-on-save, prune, traversal rejection |
 | `unit/validation` | 6 | missing mesh/material/texture/file, invalid DDS, shader warning |
 | `integration/brf` | 6 | real BRFs, truncation, naming |
 | `integration/brfWriter` | 4 | 219-file byte-identical corpus, real mesh edit, real geometry, workspace export |
@@ -844,7 +890,7 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `integration/skins` | 1 | Native `skins.txt`, both bodies, missing skin |
 | `integration/outfits` | 1 | item meshes, rigid pose, outfit save/load/delete/validation |
 | `integration/items` | 1 | editable record, override validation, new item export, source hash |
-| `integration/build` | 2 | overlay artifact grouping, source hashes, invalid-build gate |
+| `integration/build` | 3 | overlay grouping, module.ini injection, rollback/prune/diff, invalid gate |
 | `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
 | `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, outfits, CSP, static, 404 |
 
@@ -855,6 +901,17 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 9 completed
+
+- **Retention**: keep-N build pruning and project/workspace backup pruning with typed confirmation.
+- **Recovery**: build project snapshots and `rollbackBuild`.
+- **Diff**: source-vs-built byte/SHA-256 report with changed/added/unchanged/unavailable.
+- **Module integration**: append missing `load_resource` entries to built `module.ini`.
+- **UI/API**: build diff/rollback/prune, backups prune; `/api/builds/:id/diff`, rollback/prune routes.
+- **Tests**: 114 passing (retention, rollback, diff, module.ini).
+- Docs: data model/architecture/ADR-040..043.
+- Milestone tag: `phase-9-hardening`.
 
 ### 2026-11-06 - Phase 8 completed
 
@@ -969,27 +1026,27 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 9 — Validation, Backup, Recovery & Hardening** (proposed; requires explicit approval).
+**Phase 10 — Build, Launch & Production Polish** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Build retention | prune old build workspaces with confirmation | bounded disk usage |
-| Build rollback | restore a previous build/module snapshot | reproducible recovery |
-| Diff viewer | compare source vs built files, hashes and bytes | clear change report |
-| Validation expansion | material/texture chain checks in the build gate | fewer late failures |
-| module.ini integration | optional `load_resource` additions for new BRFs | overlay loads correctly |
-| Tests/docs | retention, rollback, diff, destructive paths | green and documented |
+| Packaging | Node SEA or equivalent launcher | runs without a developer toolchain |
+| First run | guided installation detection and settings | setup completes cleanly |
+| Diagnostics | log viewer, health checks, recovery guidance | actionable errors |
+| UI polish | accessibility, keyboard flow, confirmations | production-quality shell |
+| Deployment handoff | explicit staging/export workflow if requested | manual, reversible |
+| Tests/docs | packaged smoke tests and user guide | green and documented |
 
-### Explicitly out of Phase 9
+### Explicitly out of Phase 10
 
-Live game deployment, animation/troop/scene editors, packaging.
+Live process patching, animation/troop/scene editors, cloud services.
 
 ### Decisions requested with this approval
 
-1. **Retention**: keep the last N builds (proposed) vs time-based vs manual only.
-2. **Rollback**: restore a build workspace snapshot (proposed) vs only re-run a build.
-3. **Deployment**: keep game writes disabled (proposed) until a dedicated packaging phase.
+1. **Packaging**: Node SEA (proposed) vs keep Node prerequisite.
+2. **First-run**: guided wizard (proposed) vs configuration file only.
+3. **Deployment**: finish as a workspace handoff (proposed) vs add a live installer.
 
 **Waiting for explicit user approval.**

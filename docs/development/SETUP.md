@@ -131,7 +131,17 @@ Open **Build**:
   first. Neither mode writes into the game installation.
 
 An overlay expects the module's existing `load_resource` entries to load changed
-BRF basenames. A full module copy is a deployable tree inside the workspace.
+BRF basenames. Builds append missing entries to the copied `module.ini`.
+A full module copy is a deployable tree inside the workspace.
+
+Build result actions:
+
+- **Ver diff** compares source vs built sizes and SHA-256;
+- **Rollback al proyecto** restores the build's `project.json` snapshot;
+- **Limpiar builds** keeps the newest N builds after typing `PRUNE_BUILDS`.
+
+In **Copias**, **Limpiar** prunes project/workspace backups after typing
+`PRUNE_BACKUPS`. Nothing in either flow writes to the game installation.
 
 ## Tests
 
@@ -145,7 +155,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 8 result: **111 passing**.
+Expected Phase 9 result: **114 passing**.
 
 ## CLI tools
 
@@ -226,7 +236,9 @@ config/profiles.json  local installation profiles (created on first run)
 | Item editor | `frontend/js/item-editor.js`, `engine.getItemEditable/validateItemOverride` |
 | Item persistence/export | `projectStore.saveItemOverride`, `engine.exportItemOverrides` |
 | Build pipeline | `engine.buildProject`, `frontend/js/build.js` |
-| Build artifacts | workspace `<id>/build.json`, `build.log`, `Modules/...` |
+| Build artifacts | workspace `<id>/build.json`, `build.log`, `project.json`, `Modules/...` |
+| Build diff/rollback | `engine.diffBuild`, `engine.rollbackBuild` |
+| Retention | `engine.pruneBuilds`, `engine.pruneBackups` |
 | Texture import | `engine.importTexture`, `WorkspaceStore`, `project.textures` |
 | Override persistence/export | `engine/resources/meshOverride.js`, `projectStore.saveMeshOverride` |
 | Viewport data API | `engine.getMeshRenderData`, `engine.getTextureFile` |

@@ -1052,3 +1052,15 @@ button.danger { color: #e27b7b; border-color: rgba(226, 123, 123, 0.4); }
 .build-message { padding: 10px; font-size: 11px; white-space: pre-wrap; color: var(--text-muted); }
 .build-message.error { color: var(--error); }
 .build-message.warning { color: var(--warning); }
+
+.build-keep { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+.build-keep input { width: 58px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; color: var(--text); padding: 5px 6px; font-family: var(--mono); font-size: 11px; }
+.build-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0; }
+.diff-table { display: grid; gap: 4px; margin: 8px 0; }
+.diff-row { display: grid; grid-template-columns: 60px minmax(0, 1fr) 82px; gap: 8px; font-family: var(--mono); font-size: 10px; padding: 5px 7px; border-left: 2px solid var(--border-strong); }
+.diff-row.changed { border-left-color: var(--warning); }
+.diff-row.added { border-left-color: var(--ok); }
+.diff-row.unavailable { border-left-color: var(--text-dim); }
+.diff-row .status { text-transform: uppercase; color: var(--text-dim); }
+.diff-row.changed .status { color: var(--warning); }
+.diff-row.added .status { color: var(--ok); }

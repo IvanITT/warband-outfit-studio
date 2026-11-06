@@ -46,6 +46,25 @@ test('creates, loads, lists and backs up projects', async () => {
   assert.ok(reloaded.updatedAt >= reloaded.createdAt);
 });
 
+test('prunes old project backups per project id', async () => {
+  const { store } = await makeStore();
+  const project = await store.create({
+    name: 'Prune Project',
+    installationId: 'install-1',
+    installationPath: 'C:/game',
+    moduleId: 'Native',
+  });
+  const loaded = await store.load(project.id);
+  for (let revision = 0; revision < 3; revision += 1) {
+    loaded.notes = `revision ${revision}`;
+    await store.save(loaded);
+  }
+  assert.equal((await store.listBackups()).length, 3);
+  const result = await store.pruneBackups(1);
+  assert.equal(result.removed.length, 2);
+  assert.equal((await store.listBackups()).length, 1);
+});
+
 test('refuses path traversal in project ids', async () => {
   const { store } = await makeStore();
   assert.throws(() => store.fileFor('../evil'), /Invalid project id/);

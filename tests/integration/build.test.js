@@ -94,6 +94,50 @@ test('builds a project overlay with mesh, material and item overrides', { skip: 
   const fetched = await engine.getBuild(built.buildId);
   assert.equal(fetched.manifest.projectId, project.id);
   assert.match(fetched.log, /Build /);
+
+  const diff = await engine.diffBuild(built.buildId);
+  assert.ok(diff.summary.changed >= 2);
+  assert.ok(diff.files.some((file) => file.kind === 'items' && file.changed));
+  assert.ok(diff.files.some((file) => file.kind === 'texture' && !file.comparable));
+
+  const current = await engine.getItemOverride(project.id, 'itm_mail_shirt');
+  current.fields = { ...current.fields, name: 'Changed_After_Build' };
+  await engine.saveItemOverride(project.id, current);
+  await engine.rollbackBuild(project.id, built.buildId, built.buildId);
+  assert.equal((await engine.getItemOverride(project.id, 'itm_mail_shirt')).fields.name, 'Built_Mail');
+
+  const second = await engine.buildProject(project.id, { label: 'build-second' });
+  assert.notEqual(second.buildId, built.buildId);
+  const pruned = await engine.pruneBuilds(1, 'PRUNE_BUILDS');
+  assert.equal(pruned.remaining, 1);
+  assert.equal((await engine.listBuilds()).builds.length, 1);
+  await assert.rejects(() => engine.getBuild(built.buildId), (error) => {
+    assert.equal(error.code, 'BUILD_NOT_FOUND');
+    return true;
+  });
+});
+
+test('adds missing module.ini load_resource entries for changed BRFs', { skip: hasGame ? false : 'Warband not installed' }, async () => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), 'wos-build-ini-'));
+  const engine = await createEngine({ projectRoot, installationPath: GAME, cache: false });
+  const project = await engine.projects.create({
+    name: 'Module Ini Build',
+    installationId: engine.installation.id,
+    installationPath: engine.installation.rootPath,
+    moduleId: 'Native',
+  });
+  const mesh = await engine.getMeshEditable('Native', 'dlg_button');
+  const model = createModel(mesh);
+  applyTransform(model, { vertices: [...Array(model.vertexPosition.length).keys()] }, {
+    mode: 'translate', axis: 'x', amount: 0.01, step: 0,
+  });
+  await engine.saveMeshOverride(project.id, modelToOverride(model, mesh.source));
+
+  const built = await engine.buildProject(project.id);
+  const consolidated = await engine.getBuild(built.buildId);
+  assert.ok(consolidated.manifest.files.some((file) => file.kind === 'config' && file.target.endsWith('module.ini')));
+  const ini = await readFile(path.join(projectRoot, 'workspace', built.buildId, 'Modules', 'Native', 'module.ini'), 'utf8');
+  assert.match(ini, /load_resource = core_ui_meshes/);
 });
 
 test('rejects a build with invalid overrides before writing a workspace', { skip: hasGame ? false : 'Warband not installed' }, async () => {

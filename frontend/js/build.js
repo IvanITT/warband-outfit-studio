@@ -54,6 +54,20 @@ export function createBuildView(ctx) {
 
   function renderManifest(manifest, log) {
     const summary = manifest.summary ?? {};
+    const actions = el('div', { class: 'build-actions' }, [
+      el('button', {
+        class: 'ghost small',
+        type: 'button',
+        text: 'Ver diff',
+        onclick: () => showDiff(manifest.id),
+      }),
+      el('button', {
+        class: 'ghost small',
+        type: 'button',
+        text: 'Rollback al proyecto',
+        onclick: () => rollback(manifest),
+      }),
+    ]);
     const fileRows = (manifest.files ?? []).map((file) => el('div', { class: 'build-file' }, [
       el('span', { class: 'kind', text: file.kind }),
       el('span', { class: 'path', text: file.target }),
@@ -82,12 +96,66 @@ export function createBuildView(ctx) {
     children.push(
       el('h3', { class: 'section-title', text: 'Archivos' }),
       el('div', { class: 'build-files' }, fileRows.length ? fileRows : [el('p', { class: 'muted', text: 'Sin archivos.' })]),
+      actions,
       el('details', { class: 'build-log' }, [
         el('summary', { text: 'Log de build' }),
         el('pre', { text: log }),
       ]),
     );
     dom.buildResult.replaceChildren(...children);
+  }
+
+  async function showDiff(buildId) {
+    try {
+      const diff = await api.buildDiff(buildId);
+      const rows = diff.files.map((file) => {
+        const status = !file.comparable ? 'n/a' : file.changed ? (file.sourceExists ? 'changed' : 'added') : 'same';
+        return el('div', { class: `diff-row ${status}` }, [
+          el('span', { class: 'status', text: status }),
+          el('span', { class: 'path', text: file.target }),
+          el('span', { class: 'bytes', text: file.comparable ? `${file.builtBytes} B` : 'sin baseline' }),
+        ]);
+      });
+      dom.buildResult.append(
+        el('div', { class: 'diff-table' }, [
+          el('h3', { class: 'section-title', text: `Diff · ${diff.summary.changed} cambiados / ${diff.summary.added ?? 0} añadidos / ${diff.summary.unchanged} iguales` }),
+          ...rows,
+        ]),
+      );
+    } catch (error) {
+      message(`No se pudo comparar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  async function rollback(manifest) {
+    const confirm = window.prompt(`Escribe el id del build para restaurar el proyecto '${manifest.projectId}':`, '');
+    if (confirm !== manifest.id) {
+      message('Rollback cancelado.', 'warning');
+      return;
+    }
+    try {
+      await api.rollbackBuild(manifest.id, manifest.projectId, confirm);
+      message(`Proyecto restaurado desde ${manifest.id}.`, 'ok');
+      setStatus(`Rollback aplicado: ${manifest.id}`);
+    } catch (error) {
+      message(`No se pudo hacer rollback: ${errorText(error)}`, 'error');
+    }
+  }
+
+  async function pruneBuilds() {
+    const keep = Number(dom.buildKeep?.value ?? 5) || 5;
+    const confirm = window.prompt(`Se conservarán los ${keep} builds más recientes. Escribe PRUNE_BUILDS para confirmar:`, '');
+    if (confirm !== 'PRUNE_BUILDS') {
+      message('Limpieza cancelada.', 'warning');
+      return;
+    }
+    try {
+      const result = await api.pruneBuilds(keep, confirm);
+      await loadBuilds();
+      message(`Builds eliminados: ${result.removed.length} · restantes: ${result.remaining}.`, 'ok');
+    } catch (error) {
+      message(`No se pudo limpiar: ${errorText(error)}`, 'error');
+    }
   }
 
   async function showBuild(buildId) {
@@ -161,6 +229,7 @@ export function createBuildView(ctx) {
       projectId = dom.buildProject.value;
     });
     dom.buildStart?.addEventListener('click', build);
+    dom.buildPrune?.addEventListener('click', pruneBuilds);
     dom.buildRefresh?.addEventListener('click', load);
   }
 

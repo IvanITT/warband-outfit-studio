@@ -59,6 +59,19 @@ export const api = {
   ),
   builds: () => request('/api/builds'),
   build: (buildId) => request(`/api/builds/${encodeURIComponent(buildId)}`),
+  buildDiff: (buildId) => request(`/api/builds/${encodeURIComponent(buildId)}/diff`),
+  rollbackBuild: (buildId, projectId, confirm) => request(
+    `/api/builds/${encodeURIComponent(buildId)}/rollback`,
+    { method: 'POST', body: { projectId, confirm } },
+  ),
+  pruneBuilds: (keep, confirm) => request('/api/builds/prune', {
+    method: 'POST',
+    body: { keep, confirm },
+  }),
+  pruneBackups: (keep, confirm) => request('/api/backups/prune', {
+    method: 'POST',
+    body: { keep, confirm },
+  }),
 
   itemOverrides: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/items`),
   itemOverride: (projectId, itemId) => request(
