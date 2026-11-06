@@ -94,7 +94,7 @@ The viewport was verified with a real screenshot during Phase 3:
 ## 7. Limits and next steps
 
 - One mesh at a time; no skeleton pose or skinning yet (bind pose only).
-- Diffuse map only; normal/specular preview is Phase 5.
+- Diffuse map only; normal/specular preview was added in the Phase 5 material panel.
 - No mipmaps, shadows or texture streaming.
 - No mesh editing (Phase 4).
 - The asset list shows LOD/piece meshes as separate rows.

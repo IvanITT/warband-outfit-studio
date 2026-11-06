@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 5 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 6**
+> Current phase: **Phase 6 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 7**
 
 ---
 
@@ -129,6 +129,9 @@ Implemented engine modules:
 | `engine/resources/geometry.js` | lazy mesh geometry with allocation limits | IMPLEMENTED |
 | `engine/resources/workspace.js` | workspace-only writes, backups, SHA-256 | IMPLEMENTED |
 | `engine/resources/meshOverride.js` | project mesh overrides, validation, BRF merge | IMPLEMENTED |
+| `engine/resources/materialOverride.js` | material override validation, merge + texture copy | IMPLEMENTED |
+| `engine/skins/skins.js` | `skins.txt` body/calf/hand/head/skeleton parser | IMPLEMENTED |
+| `engine/outfit/clipping.js` | bounding-box outfit clipping analysis | IMPLEMENTED |
 | `engine/resources/brfIndex.js` | cross-file index + persistent cache | IMPLEMENTED |
 | `engine/resources/textureResolver.js` | DDS discovery | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header | IMPLEMENTED |
@@ -297,11 +300,17 @@ Completed:
 
 **Exit met:** real `mail_shirt_a` material edited (r/g/b 64/128/192, specular 2.5), exported with 3 textures; source BRF unchanged; preview and screenshot verified.
 
-### Phase 6 — Outfit & Armor Editor
+### Phase 6 — Outfit & Armor Editor — **COMPLETE (2026-11-06)**
 
-- Character body preview, equip/unequip across slots, transforms, replacement, presets.
-- Outfit projects with save/load.
-- **Exit:** a complete outfit is assembled, saved, reopened and validated.
+Completed:
+
+- `skins.txt` parser (2 skins) and body resolution: `man`/`woman`, six body parts each.
+- Bind-pose body assembly using `CommonRes/skeletons.brf` global bone matrices for rigid parts; skinned meshes render their stored bind positions.
+- Outfit side tab: body preset, body/head/hand/foot slots, per-slot X/Y/Z/scale offsets, preset, clipping analysis, save/load/delete and PNG snapshot.
+- Project `outfits[]` records referencing item ids; validation rejects wrong slots; typed confirmation for delete.
+- 108 automated tests.
+
+**Exit met:** a full outfit (`mail_shirt` + `helmet_with_neckguard` + `leather_gloves` + `leather_boots`) renders on both bodies, saves, reloads and validates; source game files untouched.
 
 ### Phase 7 — Item Editor
 
@@ -330,9 +339,9 @@ Completed:
 
 ## 9. Current Phase
 
-**Phase 5 is COMPLETE.** All Phase 5 deliverables are implemented, tested and documented.
+**Phase 6 is COMPLETE.** All Phase 6 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 6.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 7.
 
 ### Roadmap reconciliation (accepted)
 
@@ -514,56 +523,75 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 
 ---
 
-## 11. Pending Work
+### Phase 6 (2026-11-06)
 
-### Phase 6 (proposed, not authorized)
+**Outfit & armor editor**
 
-1. **Character bodies** — load `skins.txt` + skeleton/body meshes from the game; male/female body presets.
-2. **Wearable composition** — equip head/body/hands/feet/cape items by slot, multiple layers, replacement.
-3. **Transforms/attachments** — place accessories, inspect clipping with a simple overlap check.
-4. **Outfit projects** — outfit records referencing items/meshes/materials; save/load; preview presets.
-5. **Starter presets** — build outfits from a selected item set; export a preview snapshot.
-6. **Tests/docs** — composition invariants, outfit loading, slot validation.
+- `parseSkinsFile` consumes all `skins.txt` fields and returns man/woman body, calf, hand, head and skeleton names.
+- `getCharacter` resolves six bind-pose body parts with their materials/BRFs.
+- Rigid mesh posing: global bind matrices from `CommonRes/skeletons.brf` move bone-local heads, hands, helmets and gloves into character space; skinned meshes keep their stored bind positions.
+- Engine `getOutfitItemMeshes` resolves base + piece meshes (no LODs), adds the glove `_R` counterpart and returns material metadata.
+- Visor **Outfit** tab: skin preset, body/head/hand/foot selection, per-slot X/Y/Z/scale offsets, preset, clipping analysis, save/load/delete and PNG snapshot.
+- `project.outfits[]` records reference item ids; validation enforces slot compatibility and numeric transforms; delete needs the outfit id.
+- 108 automated tests.
 
-### Explicitly out of Phase 6
+**Verification**
 
-Item editing, deployment, animation/pose editing beyond the bind pose.
-
-### Decisions requested with this approval
-
-1. **Body source**: use Native body/skeleton meshes from BRFs (proposed) vs a neutral mannequin.
-2. **Clipping check**: simple bounding-box/vertex overlap (proposed) vs no automated check.
-3. **Outfit storage**: project `outfits[]` referencing item ids (proposed) vs duplicating item records.
-
-### Backlog after Phase 6
-
-- Phase 7: item editor; Phase 8: exporter; Phase 9: hardening; Phase 10: packaging.
+- 108/108 tests in ~6.8 s (skins parser, rigid pose, outfit persistence, clipping, API).
+- `man`/`woman` bodies each resolve six parts; `male_head` rigid pose moved from head-local space into bind-pose space (`min.y` 1.497 > raw 0.133).
+- `leather_gloves` resolves `L` + `R`; `mail_shirt` resolves `mail_shirt_a`.
+- UI verified with `mail_shirt` + `helmet_with_neckguard` + `leather_gloves` + `leather_boots`: 11 pieces, saved as `Knight Demo`, reloaded, `0` clipping warnings; screenshot captured.
+- Snapshot export produced a 56,713-byte PNG.
 
 ---
 
-## 12. Known Issues (after Phase 5)
+## 11. Pending Work
+
+### Phase 7 (proposed, not authorized)
+
+1. **Item records** — create/edit id, name, type, mesh refs, armor values, weight, value, flags, merchandise.
+2. **Module System integration** — generate/write `module_items.py`-compatible records and compiled `item_kinds1.txt` safely.
+3. **Validation** — reuse the symbol/flag tables, detect duplicates and broken mesh/material chains before writing.
+4. **Workspace export** — write the edited item file to a workspace, with round-trip and diff tests.
+5. **Tests/docs** — item invariants, pristine-file round-trip, API and UI flow.
+
+### Explicitly out of Phase 7
+
+Deployment into a live module, build/launcher orchestration (Phase 8), animation editing.
+
+### Backlog after Phase 7
+
+- Phase 8: builder/exporter; Phase 9: hardening/recovery; Phase 10: packaging.
+
+---
+
+## 12. Known Issues (after Phase 6)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
-| 1 | The outfit view is read-only; project item editing is not implemented | High | Planned Phase 6–7 |
-| 2 | Dirty animations and collision bodies cannot be written | Medium | Preserved verbatim; writer throws if marked dirty |
-| 3 | Adding/removing BRF objects (section count changes) is not exposed | Medium | Phase 8 (builder) |
-| 4 | Viewport renders the bind pose only (no skinning/skeleton pose) | Medium | Phase 6 |
-| 5 | Specular preview is a metalness approximation, not the game shader | Medium | Documented (ADR-029) |
-| 6 | Mesh topology changes are blocked on rigged/framed meshes | Medium | Weights in a later phase |
-| 7 | Extrude is per-face; adjacent faces keep internal walls | Low | Improve in a Phase 4 follow-up |
-| 8 | Overrides store a full geometry snapshot, not a delta | Low | Optimize if projects grow |
-| 9 | No UV or bone-weight editing yet | Medium | Future phase |
-| 10 | No material creation from scratch (overrides existing only) | Medium | Future phase |
-| 11 | No texture editing (paint/resize/convert); import only | Medium | Future phase |
-| 10 | UV V flip is LIKELY (OpenBRF convention); toggle available | Low | Controlled experiment |
-| 11 | Geometry is re-read on every viewport selection | Low | LRU if it hurts |
-| 12 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Controlled experiment |
-| 13 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
-| 14 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
-| 15 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
-| 16 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
-| 17 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
+| 1 | Outfits are bind-pose only; no animation, skeleton posing or weight editing | Medium | Future phase |
+| 2 | Rigid-vs-skinned handling is inferred from empty `rigging[]`; this is **VERIFIED** for Native body/head/hand meshes but not traced in the engine | Medium | Documented (ADR-031) |
+| 3 | Clipping uses bounding boxes; body-vs-item containment is not reported as clipping | Medium | Documented (ADR-033) |
+| 4 | One item per slot; no layered body garments or separate cape slot | Medium | Future outfit work |
+| 5 | Body armor is displayed on both genders without re-skinning; female fit is approximate | Medium | Documented |
+| 6 | PNG snapshot is a browser download, not a workspace artifact | Low | Future export flow |
+| 7 | Dirty animations and collision bodies cannot be written | Medium | Preserved verbatim; writer throws if marked dirty |
+| 8 | Adding/removing BRF objects (section count changes) is not exposed | Medium | Phase 8 (builder) |
+| 9 | Specular preview is a metalness approximation, not the game shader | Medium | Documented (ADR-029) |
+| 10 | Mesh topology changes are blocked on rigged/framed meshes | Medium | Weights in a later phase |
+| 11 | Extrude is per-face; adjacent faces keep internal walls | Low | Improve in a Phase 4 follow-up |
+| 12 | Overrides store a full geometry snapshot, not a delta | Low | Optimize if projects grow |
+| 13 | No UV or bone-weight editing yet | Medium | Future phase |
+| 14 | No material creation from scratch (overrides existing only) | Medium | Future phase |
+| 15 | No texture editing (paint/resize/convert); import only | Medium | Future phase |
+| 16 | UV V flip is LIKELY (OpenBRF convention); toggle available | Low | Controlled experiment |
+| 17 | Geometry is re-read on every viewport selection | Low | LRU if it hurts |
+| 18 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Controlled experiment |
+| 19 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
+| 20 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
+| 21 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
+| 22 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
+| 23 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
 
 ---
 
@@ -578,7 +606,7 @@ Item editing, deployment, animation/pose editing beyond the bind pose.
 | Frontend | No component framework; DOM helpers are ad hoc | Re-evaluate at Phase 3 (viewport) |
 | BRF writer | Encodes dirty meshes via `Buffer.concat` of many small chunks | Optimise only if large-mesh writes show up in profiles |
 | Geometry | No cache; one file read per mesh selection | LRU if profiling shows it matters |
-| DDS decoder | First mip only; DXT1/3/5 + BC1-3; no BC4-7/mipmaps | Extend in Phase 5 |
+| DDS decoder | First mip only; DXT1/3/5 + BC1-3; no BC4-7/mipmaps | Extend when a target asset needs it |
 | Viewport controls | Custom orbit controls without inertia/touch pinch | Add in Phase 4 if needed |
 | Viewport tests | DOM/screenshot verification; no automated WebGL assertion | Add a render smoke test in Phase 9 |
 | Mesh history | Full model snapshots (25 max) | Delta/undo journal if memory matters |
@@ -589,6 +617,10 @@ Item editing, deployment, animation/pose editing beyond the bind pose.
 | Material preview | Specular approximated via metalnessMap | Custom shader if needed |
 | Texture storage | Imported textures shared in `workspace/textures`; no GC | Phase 9 retention |
 | Material scope | Only existing materials can be overridden | Future creation flow |
+| Outfit assembly | Rigid parts are placed with bind matrices; no runtime skinning/poses | Add skeleton posing when animation work starts |
+| Outfit clipping | Bounding-box heuristic; no mesh-level collision test | Add triangle/vertex proximity in Phase 9 |
+| Outfit slots | One item per slot; body includes clothing/armor/cape | Layered body model when item rules require it |
+| Snapshot | Browser-download PNG; not tracked in a project/workspace | Route through workspace exports in Phase 8 |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
 | Backups | No pruning/retention policy (ADR-020) | Phase 9 |
@@ -631,6 +663,10 @@ Item editing, deployment, animation/pose editing beyond the bind pose.
 | ADR-027 | Material colours are raw 0-255 values | Accepted (Phase 5) |
 | ADR-028 | Imported textures live in a workspace + project registry | Accepted (Phase 5) |
 | ADR-029 | Normal/spec preview is an approximation | Accepted (Phase 5) |
+| ADR-030 | Use Native `skins.txt` + `skel_human` bodies, not a mannequin | Accepted (Phase 6) |
+| ADR-031 | Pose rigid meshes with bind bone matrices; leave skinned bind positions untouched | Accepted (Phase 6) |
+| ADR-032 | Outfits are project records referencing item ids, not item copies | Accepted (Phase 6) |
+| ADR-033 | Clipping is a bounding-box heuristic with explicit false-positive limits | Accepted (Phase 6) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -668,12 +704,19 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-24 | Editing a shared position must move it once, not once per UV seam | duplicate vertex indices share position indices | **VERIFIED** | dedupe by `vertexPosition` in transforms |
 | F-25 | BRF material `r/g/b` are 0-255; `specular` is a raw float | `mail_shirt_a` = 15/15/15, specular 16; range 0-228 | **VERIFIED** | material editor/validator |
 | F-26 | Material `spec` is optional; a non-empty value implies presence | `LoadStringMaybe` + real materials | **VERIFIED** | editor sets `specPresent` |
+| F-27 | `skins.txt` face keys use six tokens (`name idx flag min max label`), not five | Native man/woman parsed to the correct hair/beard/constraint counts | **VERIFIED** | `engine/skins/skins.js` |
+| F-28 | Native exposes exactly two human skins: `man` and `woman`; body/calf/hand/head names are stored per skin | Native `skins.txt` | **VERIFIED** | `getCharacter` |
+| F-29 | `skel_human` has 20 bones; global bind matrix = parent matrix × `[x y z t]` | `CommonRes/skeletons.brf`, assembled male/female body | **VERIFIED** | `getSkeletonMatrices` |
+| F-30 | Skinned mesh positions are already bind-pose/world coordinates; rigid body parts are bone-local | one-bone vs empty rigging + visual assembly | **VERIFIED** | rigid pose path |
+| F-31 | Helmets and gloves are rigid; Native body, foot and body-armor items are rigged | 108 head, 12 hand, 28 foot, 132 body item meshes | **VERIFIED** | outfit bone mapping |
+| F-32 | Gloves resolve as `_L` and `_R` meshes; the outfit view must load both | `itm_leather_gloves` | **VERIFIED** | `getOutfitItemMeshes` |
+| F-33 | Full outfit composition and save/load round-trip works for both bodies | UI + engine integration | **VERIFIED** | Phase 6 exit |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **102 / 102 passing** (~6.3 s), zero dependencies.
+**Command:** `npm test` - **108 / 108 passing** (~6.8 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -696,17 +739,30 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `unit/meshEdit` | 13 | transforms, snapping, topology, guards, overrides, validation |
 | `integration/meshOverride` | 2 | real edit/override/export, frame preservation, invalid override |
 | `unit/materialOverride` | 3 | validation, texture references |
+| `unit/clipping` | 4 | containment, detached item, non-body overlap, missing bounds |
 | `integration/materials` | 3 | real material edit/export, texture import, invalid override |
+| `integration/skins` | 1 | Native `skins.txt`, both bodies, missing skin |
+| `integration/outfits` | 1 | item meshes, rigid pose, outfit save/load/delete/validation |
 | `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
-| `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, CSP, static, 404 |
+| `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, outfits, CSP, static, 404 |
 
 Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734 textures / 139 shaders; 0 parse errors; byte-identical `item_kinds1.txt` round-trip in all three modules; **219/219 BRF byte-identical round-trip**.
 
-**Not yet tested:** viewport (not implemented), dirty animation/body writing (unsupported), module `Resource` corpus round-trip, `.sco`/`.sav`, concurrent index builds, >1 GB mods under memory pressure.
+**Not yet tested:** animation/skeleton posing, dirty animation/body writing (unsupported), module `Resource` corpus round-trip, `.sco`/`.sav`, concurrent index builds, >1 GB mods under memory pressure.
 
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 6 completed
+
+- **Bodies**: `skins.txt` parser; `man`/`woman` six-part bodies; bind matrices from `skel_human`.
+- **Composition**: rigid head/hand/helmet/glove posing; body/head/hand/foot outfit slots; per-slot offsets and scale.
+- **Projects**: `project.outfits[]` save/load/delete, validation and typed confirmation.
+- **UI**: Outfit tab, preset, clipping report, PNG snapshot; 0.7.0.
+- **Tests**: 108 passing (skins, outfit pose, clipping, API).
+- Docs: `docs/architecture/OUTFITS.md`, data model/architecture/ADR-030..033.
+- Milestone tag: `phase-6-outfit-editor`.
 
 ### 2026-11-06 - Phase 5 completed
 
@@ -789,27 +845,27 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 6 — Outfit & Armor Editor** (proposed; requires explicit approval).
+**Phase 7 — Item Editor** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Character bodies | load body/skeleton meshes + `skins.txt` | a human body renders in the viewport |
-| Slot composition | equip head/body/hands/feet/cape items | a full outfit renders from selected items |
-| Transforms/attachments | position accessories; basic clipping check | obvious clipping is reported |
-| Outfit projects | `outfits[]` referencing items/meshes | save/load reproduces the outfit |
-| Presets | starter outfit from a selected item set | preset loads and validates |
-| Tests/docs | slot invariants, outfit loading, clipping | green and documented |
+| Item records | editable id, name, plural, type, mesh, armor/weight/value, flags, merchandise | records round-trip |
+| Symbolic fields | type/attachment/carry/shoot selectors from the generated table | no hand-typed magic numbers |
+| Validation | duplicate ids, mesh/material chains, reserved ids | issues before writing |
+| Workspace export | write edited `item_kinds1.txt` to a workspace | byte-stable round-trip |
+| UI | item form + preview using the Phase 6 outfit view | create/edit/save/reopen |
+| Tests/docs | parser/writer invariants, API, real fixtures | green and documented |
 
-### Explicitly out of Phase 6
+### Explicitly out of Phase 7
 
-Item editing, deployment, skeleton posing beyond the bind pose.
+Deployment into a live module/build pipeline, animation editing, scene/troop/faction editors.
 
 ### Decisions requested with this approval
 
-1. **Body source**: use Native body/skeleton meshes from BRFs (proposed) vs a neutral mannequin.
-2. **Clipping check**: simple bounding-box/vertex overlap (proposed) vs no automated check.
-3. **Outfit storage**: project `outfits[]` referencing item ids (proposed) vs duplicating item records.
+1. **Item source**: edit existing records in place (proposed) vs create-from-scratch only.
+2. **Export**: workspace copy of `item_kinds1.txt` (proposed) vs a Module System `.py` file.
+3. **Id conflicts**: block duplicate ids (proposed) vs allow with warning.
 
 **Waiting for explicit user approval.**

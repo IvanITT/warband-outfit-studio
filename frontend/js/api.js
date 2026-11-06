@@ -73,6 +73,13 @@ export const api = {
   meshGeometry: (module, name) => request(
     `/api/meshes/${encodeURIComponent(name)}/geometry?module=${encodeURIComponent(module)}`,
   ),
+  outfitMeshRender: (module, name, { slot, role, bone } = {}) => {
+    const params = new URLSearchParams({ module });
+    if (slot) params.set('slot', slot);
+    if (role) params.set('role', role);
+    if (bone) params.set('bone', bone);
+    return request(`/api/meshes/${encodeURIComponent(name)}/outfit-render?${params}`);
+  },
   meshEditable: (module, name) => request(
     `/api/meshes/${encodeURIComponent(name)}/editable?module=${encodeURIComponent(module)}`,
   ),
@@ -146,6 +153,28 @@ export const api = {
   importTexture: (workspaceId, fileName, base64) => request(
     `/api/workspaces/${encodeURIComponent(workspaceId)}/textures`,
     { method: 'POST', body: { fileName, data: base64 } },
+  ),
+
+  /* characters & outfits */
+  skins: (module) => request(`/api/skins?module=${encodeURIComponent(module)}`),
+  character: (module, skin) => request(
+    `/api/characters?module=${encodeURIComponent(module)}&skin=${encodeURIComponent(skin)}`,
+  ),
+  outfitItemMeshes: (module, itemId) => request(
+    `/api/outfit-items/${encodeURIComponent(itemId)}/meshes?module=${encodeURIComponent(module)}`,
+  ),
+  analyzeOutfit: (payload) => request('/api/outfits/analyze', { method: 'POST', body: payload }),
+  outfits: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/outfits`),
+  saveOutfit: (projectId, outfit) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/outfits`,
+    { method: 'POST', body: { outfit } },
+  ),
+  outfit: (projectId, outfitId) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/outfits/${encodeURIComponent(outfitId)}`,
+  ),
+  removeOutfit: (projectId, outfitId, confirm) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/outfits/${encodeURIComponent(outfitId)}?confirm=${encodeURIComponent(confirm)}`,
+    { method: 'DELETE' },
   ),
 
   /* workspaces */

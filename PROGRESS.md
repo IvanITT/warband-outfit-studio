@@ -553,3 +553,86 @@ New suites:
 ### Milestone
 
 Tag `phase-5-materials`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 6 — Outfit & Armor Editor
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Compose complete outfits on real Warband character bodies: load `skins.txt` and
+skeleton/body meshes, equip items by slot, adjust placement, check obvious
+clipping and persist/reopen outfit projects — without modifying the game.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Skins | `engine/skins/skins.js`; Native `man`/`woman`, six parts each |
+| Body assembly | `skel_human` bind matrices for rigid parts; skinned meshes keep bind positions |
+| Items | base + LOD-0 pieces; gloves load `_L` + `_R`; material metadata |
+| UI | Visor **Outfit** tab: skin, body/head/hand/foot slots, offsets, preset, clipping, save/load/delete, PNG snapshot |
+| Persistence | `project.outfits[]` item references; validation; typed delete confirmation |
+| API | skins, characters, outfit meshes, outfit render, clipping, project outfits |
+| Tests | 108 automated tests |
+
+### Tests
+
+`npm test` → **108 / 108 passing** (~6.8 s).
+
+New suites:
+
+- `unit/clipping` (4): containment, detached item, non-body overlap, missing bounds.
+- `integration/skins` (1): real `skins.txt`, both bodies, missing skin.
+- `integration/outfits` (1): item meshes, rigid pose, outfit save/load/delete/validation.
+- `integration/api` extended: skins, characters, posed head, clipping, outfit CRUD.
+
+### Verified against real data
+
+- Native `skins.txt` = 2 skins; body parts resolve for `man` and `woman`.
+- `male_head` raw bbox `y = -0.109…0.133` → posed `y = 1.497…1.824`.
+- `man_body` stays at the authored bind pose (`posed.applied = false`).
+- `itm_leather_gloves` resolves `_L` + `_R`; `itm_mail_shirt` → `mail_shirt_a`.
+- UI `Knight Demo`: 11 pieces, saved/reloaded, 0 clipping warnings; screenshot
+  captured to `docs/assets/outfits-phase6.png`.
+- PNG snapshot export produced 56,713 bytes.
+- Game installation read-only; no writes to BRFs, items or textures.
+
+### Findings
+
+1. **Face-key stride is six tokens**, not five (F-27); this initially misaligned
+   the second skin and was corrected.
+2. **Rigid vs skinned storage** is the key to assembling a body. Skinned meshes
+   are already in bind-pose/world space; rigid parts are bone-local and need
+   `parent × [x y z t]` (F-29/F-30). Applying matrices to skinned meshes
+   double-transformed them (bbox y ≈ 2.99).
+3. **Helmets and gloves are rigid**, while Native body/foot/body-armor meshes
+   are rigged (F-31).
+4. **Bounding-box clipping** cannot flag body-vs-item overlap without noise;
+   body containment is intentionally skipped (ADR-033).
+5. **Snapshot capture** works by rendering synchronously before
+   `canvas.toDataURL()`; it is a browser download.
+
+### Known limitations
+
+- Bind pose only; no animation, skeleton rotation or weight editing.
+- One item per slot; no layered garments or separate cape slot.
+- Female armor fit is approximate; body armor is not re-skinned.
+- Bbox clipping can miss surface intersections.
+- PNG snapshot is not tracked in a project/workspace.
+- Rigid/skinned classification is verified on Native, not traced through the
+  engine executable.
+
+### Documentation updated
+
+- New `docs/architecture/OUTFITS.md` (with screenshot).
+- `PROJECT_PLAN.md` (Phase 6 complete, Phase 7 proposed, ADR-030…033, findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`,
+  `docs/development/{DECISIONS,SETUP}.md`, `README.md`, version 0.7.0.
+
+### Milestone
+
+Tag `phase-6-outfit-editor`. No game files were modified. `npm test` green.

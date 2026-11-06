@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.6.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.7.0" />
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 5</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 6</p>
         </div>
       </div>
 
@@ -153,6 +153,7 @@
         <div class="viewer-tabs">
           <button id="viewer-tab-mesh" class="is-active" type="button">Mallas</button>
           <button id="viewer-tab-material" type="button">Material</button>
+          <button id="viewer-tab-outfit" type="button">Outfit</button>
         </div>
 
         <div id="viewer-mesh-panel" class="viewer-panel">
@@ -202,6 +203,52 @@
           </div>
           <div id="mat-message" class="viewer-status"></div>
         </div>
+
+        <div id="viewer-outfit-panel" class="viewer-panel outfit-panel" hidden>
+          <div class="mat-grid">
+            <label>Cuerpo</label><select id="outfit-skin"></select>
+            <label>Proyecto</label><select id="outfit-project"></select>
+            <label>Outfit</label><select id="outfit-list"></select>
+            <label>Nombre</label><input id="outfit-name" value="Outfit 1" />
+          </div>
+
+          <div class="outfit-slots">
+            <label>Cuerpo</label><select id="outfit-slot-body"></select>
+            <label>Cabeza</label><select id="outfit-slot-head"></select>
+            <label>Manos</label><select id="outfit-slot-hand"></select>
+            <label>Pies</label><select id="outfit-slot-foot"></select>
+          </div>
+
+          <div class="mat-grid">
+            <label>Offset</label>
+            <select id="outfit-transform-slot">
+              <option value="body">Cuerpo</option>
+              <option value="head">Cabeza</option>
+              <option value="hand">Manos</option>
+              <option value="foot">Pies</option>
+            </select>
+            <label>X / Y / Z</label>
+            <div class="triple">
+              <input id="outfit-x" type="number" step="0.01" value="0" />
+              <input id="outfit-y" type="number" step="0.01" value="0" />
+              <input id="outfit-z" type="number" step="0.01" value="0" />
+            </div>
+            <label>Escala</label><input id="outfit-scale" type="number" step="0.01" value="1" />
+          </div>
+
+          <div class="mat-actions">
+            <button id="outfit-refresh" class="primary" type="button">Actualizar outfit</button>
+            <button id="outfit-preset" class="ghost small" type="button">Preset</button>
+            <button id="outfit-apply-transform" class="ghost small" type="button">Aplicar offset</button>
+            <button id="outfit-analyze" class="ghost small" type="button">Analizar clipping</button>
+            <button id="outfit-save" class="ghost small" type="button">Guardar</button>
+            <button id="outfit-load" class="ghost small" type="button">Cargar</button>
+            <button id="outfit-delete" class="ghost small" type="button">Eliminar</button>
+            <button id="outfit-export-snapshot" class="ghost small" type="button">Exportar PNG</button>
+          </div>
+          <div id="outfit-message" class="viewer-status"></div>
+          <div id="outfit-clipping" class="outfit-clipping"></div>
+        </div>
       </aside>
       <section class="viewer-stage">
         <canvas id="viewer-canvas"></canvas>
@@ -217,7 +264,7 @@
           </div>
           <div id="viewer-status" class="viewer-status">Arrastra para orbitar · rueda para zoom · botón derecho para desplazar.</div>
         </div>
-        <div class="viewer-editbar">
+        <div class="viewer-editbar" id="viewer-editbar">
           <div class="edit-row">
             <span class="edit-label">Selección</span>
             <button id="edit-mode-vertex" class="ghost small is-active" type="button">Vértices</button>
@@ -294,7 +341,7 @@
     <footer class="statusbar">
       <span id="status-text">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 5 · Texture &amp; Material</span>
+      <span class="status-meta">Fase 6 · Outfit &amp; Armor</span>
     </footer>
   </div>
 
@@ -321,6 +368,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.6.0"></script>
+  <script type="module" src="/js/app.js?v=0.7.0"></script>
 </body>
 </html>

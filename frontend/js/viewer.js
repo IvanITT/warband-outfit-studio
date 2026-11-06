@@ -43,6 +43,23 @@ export function createViewer(ctx) {
   let materialEditable = null;
   let materialFields = null;
   const textureCache = new Map();
+  let outfitActive = false;
+  let outfitGroup = null;
+  let outfitBody = null;
+  let outfitSlots = {};
+  let outfitItems = [];
+  let outfitCachedGeometries = new Map();
+  let outfitCachedMaterials = new Map();
+  let outfitBuildToken = 0;
+  let outfitDataModule = '';
+  let outfitState = {
+    skin: 'man',
+    projectId: '',
+    name: 'Outfit 1',
+    entries: { body: '', head: '', hand: '', foot: '' },
+    transforms: {},
+  };
+  let viewSideTab = 'mesh';
   let raf = null;
   let baseEditable = null;
   let model = null;
@@ -141,6 +158,10 @@ export function createViewer(ctx) {
     dom.status.textContent = 'Arrastra para orbitar · rueda para zoom · botón derecho para desplazar.';
     setMessage('');
     await fetchPage(false);
+    if (viewSideTab === 'outfit') {
+      await refreshOutfitData();
+      await buildOutfit();
+    }
   }
 
   async function fetchPage(append) {
@@ -224,7 +245,30 @@ export function createViewer(ctx) {
     model = null;
     history = [];
     future = [];
+    clearOutfit();
     selection = { mode: selection.mode, vertices: new Set(), faces: new Set() };
+  }
+
+  function clearOutfit() {
+    outfitBuildToken += 1;
+    if (outfitGroup) {
+      scene?.remove(outfitGroup);
+      outfitGroup = null;
+    }
+    outfitBody = null;
+    outfitSlots = {};
+    for (const geometry of outfitCachedGeometries.values()) geometry.dispose();
+    outfitCachedGeometries.clear();
+    for (const cached of outfitCachedMaterials.values()) cached.dispose();
+    outfitCachedMaterials.clear();
+  }
+
+  function ensureOutfitGroup() {
+    if (!outfitGroup) {
+      outfitGroup = new THREE.Group();
+      scene.add(outfitGroup);
+    }
+    return outfitGroup;
   }
 
   async function select(name) {
@@ -808,19 +852,36 @@ export function createViewer(ctx) {
       );
       if (current && data.projects.some((project) => project.id === current)) dom.project.value = current;
       else view.projectId = '';
+      renderOutfitProjectOptions(data.projects);
       refreshTextureList();
     } catch (error) {
       setMessage(`Proyectos: ${errorText(error)}`, 'error');
     }
   }
 
-  function setSideTab(tab) {
+  async function setSideTab(tab) {
+    viewSideTab = tab;
     const materialTab = tab === 'material';
-    dom.meshPanel.hidden = materialTab;
+    const outfitTab = tab === 'outfit';
+    dom.meshPanel.hidden = tab !== 'mesh';
     dom.materialPanel.hidden = !materialTab;
-    dom.tabMesh.classList.toggle('is-active', !materialTab);
+    dom.outfitPanel.hidden = !outfitTab;
+    dom.tabMesh.classList.toggle('is-active', tab === 'mesh');
     dom.tabMaterial.classList.toggle('is-active', materialTab);
-    if (materialTab) refreshTextureList();
+    dom.tabOutfit.classList.toggle('is-active', outfitTab);
+    dom.editbar.hidden = outfitTab;
+    outfitActive = outfitTab;
+
+    if (outfitTab) {
+      if (meshObject) meshObject.visible = false;
+      await refreshOutfitData();
+      await buildOutfit();
+    } else {
+      clearOutfit();
+      if (meshObject) meshObject.visible = true;
+      dom.title.textContent = view.selected?.name ?? 'Selecciona una malla';
+      if (materialTab) refreshTextureList();
+    }
   }
 
   async function createProject() {
@@ -889,6 +950,469 @@ export function createViewer(ctx) {
     }
   }
 
+  /* ---------------- outfits ---------------- */
+
+  function prettyName(name) {
+    return String(name ?? '').replace(/_/g, ' ');
+  }
+
+  function slugify(text) {
+    return String(text ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || `outfit-${Date.now()}`;
+  }
+
+  function decodeEncodedArray(encoded) {
+    if (!encoded) return new Float32Array(0);
+    const binary = atob(encoded.data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const Type = { Float32Array, Uint32Array, Int32Array, Uint16Array, Uint8Array }[encoded.type] ?? Float32Array;
+    return new Type(bytes.buffer);
+  }
+
+  function outfitMessage(text, tone = '') {
+    if (!dom.outfitMessage) return;
+    dom.outfitMessage.textContent = text;
+    dom.outfitMessage.dataset.tone = tone;
+  }
+
+  function emptyEntries() {
+    return { body: '', head: '', hand: '', foot: '' };
+  }
+
+  function outfitTransform(slot) {
+    const value = outfitState.transforms?.[slot] ?? {};
+    return {
+      x: Number(value.x ?? 0) || 0,
+      y: Number(value.y ?? 0) || 0,
+      z: Number(value.z ?? 0) || 0,
+      scale: Number(value.scale ?? 1) || 1,
+    };
+  }
+
+  function bboxToJson(box) {
+    if (!box || box.isEmpty()) return null;
+    return { min: box.min.toArray(), max: box.max.toArray() };
+  }
+
+  function renderOutfitProjectOptions(projects) {
+    if (!dom.outfitProject) return;
+    const current = outfitState.projectId || view.projectId;
+    dom.outfitProject.replaceChildren(
+      el('option', { value: '', text: 'Sin proyecto' }),
+      ...projects.map((project) => el('option', { value: project.id, text: project.name })),
+    );
+    outfitState.projectId = projects.some((project) => project.id === current)
+      ? current
+      : (projects[0]?.id ?? '');
+    dom.outfitProject.value = outfitState.projectId;
+  }
+
+  async function refreshOutfitProjects() {
+    try {
+      const data = await api.projects();
+      renderOutfitProjectOptions(data.projects);
+      await refreshOutfitList();
+    } catch (error) {
+      outfitMessage(`Proyectos: ${errorText(error)}`, 'error');
+    }
+  }
+
+  async function refreshOutfitList() {
+    if (!dom.outfitList) return;
+    if (!outfitState.projectId) {
+      dom.outfitList.replaceChildren(el('option', { value: '', text: 'Sin outfits guardados' }));
+      return;
+    }
+    try {
+      const data = await api.outfits(outfitState.projectId);
+      dom.outfitList.replaceChildren(
+        el('option', { value: '', text: data.outfits.length ? 'Selecciona un outfit' : 'Sin outfits guardados' }),
+        ...data.outfits.map((outfit) => el('option', { value: outfit.id, text: outfit.name })),
+      );
+    } catch (error) {
+      dom.outfitList.replaceChildren(el('option', { value: '', text: 'No se pudo leer' }));
+      outfitMessage(`Outfits: ${errorText(error)}`, 'error');
+    }
+  }
+
+  function renderOutfitSlotOptions() {
+    const maps = [
+      ['body', dom.outfitSlotBody],
+      ['head', dom.outfitSlotHead],
+      ['hand', dom.outfitSlotHand],
+      ['foot', dom.outfitSlotFoot],
+    ];
+    for (const [slot, select] of maps) {
+      if (!select) continue;
+      const options = outfitItems
+        .filter((item) => item.slot === slot)
+        .map((item) => el('option', {
+          value: item.id,
+          text: `${item.name || prettyName(item.id)} · ${item.id}`,
+        }));
+      select.replaceChildren(
+        el('option', { value: '', text: '— Ninguno —' }),
+        ...options,
+      );
+      select.value = outfitState.entries[slot] ?? '';
+    }
+  }
+
+  async function refreshOutfitItems(force = false) {
+    if (!dom.outfitSlotBody) return;
+    if (!force && outfitDataModule === state.moduleId && outfitItems.length > 0) {
+      renderOutfitSlotOptions();
+      return;
+    }
+    if (outfitDataModule && outfitDataModule !== state.moduleId) {
+      outfitState.entries = emptyEntries();
+      outfitState.transforms = {};
+      outfitItems = [];
+    }
+    const page = await api.items({ module: state.moduleId, limit: 1000 });
+    outfitItems = page.items;
+    outfitDataModule = state.moduleId;
+    renderOutfitSlotOptions();
+  }
+
+  async function refreshOutfitData() {
+    try {
+      if (!dom.outfitSkin) return;
+      const skins = await api.skins(state.moduleId);
+      const names = skins.skins.map((skin) => skin.name);
+      dom.outfitSkin.replaceChildren(
+        ...skins.skins.map((skin) => el('option', {
+          value: skin.name,
+          text: `${skin.name}${skin.skeleton ? ` · ${skin.skeleton}` : ''}`,
+        })),
+      );
+      if (!names.includes(outfitState.skin)) outfitState.skin = names[0] ?? 'man';
+      dom.outfitSkin.value = outfitState.skin;
+      await refreshOutfitItems();
+      await refreshOutfitProjects();
+      syncOutfitControls();
+    } catch (error) {
+      outfitMessage(`Outfit: ${errorText(error)}`, 'error');
+    }
+  }
+
+  function syncOutfitControls() {
+    if (dom.outfitName) dom.outfitName.value = outfitState.name;
+    if (dom.outfitSkin) dom.outfitSkin.value = outfitState.skin;
+    for (const [slot, select] of [
+      ['body', dom.outfitSlotBody],
+      ['head', dom.outfitSlotHead],
+      ['hand', dom.outfitSlotHand],
+      ['foot', dom.outfitSlotFoot],
+    ]) {
+      if (select) select.value = outfitState.entries[slot] ?? '';
+    }
+    const slot = dom.outfitTransformSlot?.value ?? 'body';
+    const transform = outfitTransform(slot);
+    if (dom.outfitX) dom.outfitX.value = String(transform.x);
+    if (dom.outfitY) dom.outfitY.value = String(transform.y);
+    if (dom.outfitZ) dom.outfitZ.value = String(transform.z);
+    if (dom.outfitScale) dom.outfitScale.value = String(transform.scale);
+  }
+
+  async function outfitGeometryFor(name, options = {}) {
+    const key = `${name.toLowerCase()}:${options.slot ?? ''}:${options.role ?? ''}`;
+    if (outfitCachedGeometries.has(key)) return outfitCachedGeometries.get(key);
+    const data = await api.outfitMeshRender(state.moduleId, name, options);
+    const positions = decodeEncodedArray(data.arrays.positions);
+    const normals = decodeEncodedArray(data.arrays.normals);
+    const uvs = decodeEncodedArray(data.arrays.uvs);
+    const indices = decodeEncodedArray(data.arrays.indices);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    if (flipV) {
+      for (let i = 1; i < uvs.length; i += 2) uvs[i] = 1 - uvs[i];
+    }
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    outfitCachedGeometries.set(key, geometry);
+    return geometry;
+  }
+
+  async function outfitMaterialFor(name) {
+    if (!name) {
+      return new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8, side: THREE.DoubleSide });
+    }
+    const key = name.toLowerCase();
+    if (outfitCachedMaterials.has(key)) return outfitCachedMaterials.get(key);
+    const editable = await api.materialEditable(state.moduleId, name);
+    const fields = editable.fields;
+    const materialValue = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: Math.max(0.2, 0.9 - Number(fields.specular ?? 0) * 0.05),
+      metalness: 0.05,
+      side: THREE.DoubleSide,
+      wireframe,
+    });
+    const diffuse = await loadTexture(fields.diffuseA, 'diffuseA');
+    const normal = await loadTexture(fields.bump, 'bump');
+    const spec = await loadTexture(fields.spec, 'spec');
+    materialValue.map = diffuse;
+    materialValue.normalMap = normal;
+    if (normal) materialValue.normalScale.set(1, 1);
+    materialValue.metalnessMap = spec;
+    materialValue.metalness = spec ? 0.55 : 0.05;
+    materialValue.color.setRGB(
+      diffuse ? 1 : fields.r / 255,
+      diffuse ? 1 : fields.g / 255,
+      diffuse ? 1 : fields.b / 255,
+    );
+    materialValue.needsUpdate = true;
+    outfitCachedMaterials.set(key, materialValue);
+    return materialValue;
+  }
+
+  async function loadOutfitVisual(meshName, materialName, options = {}) {
+    const geometry = await outfitGeometryFor(meshName, options);
+    const materialValue = await outfitMaterialFor(materialName);
+    const mesh = new THREE.Mesh(geometry, materialValue);
+    mesh.name = meshName;
+    return mesh;
+  }
+
+  async function buildOutfit() {
+    if (!outfitActive || !scene || !dom.outfitPanel) return;
+    const token = ++outfitBuildToken;
+    ensureRenderer();
+    const group = ensureOutfitGroup();
+    group.clear();
+    group.visible = true;
+    outfitBody = null;
+    outfitSlots = {};
+    outfitMessage('Cargando outfit…');
+
+    try {
+      const character = await api.character(state.moduleId, outfitState.skin);
+      if (token !== outfitBuildToken) return;
+      const bodyGroup = new THREE.Group();
+      bodyGroup.name = 'body';
+      let pieces = 0;
+      for (const part of character.parts) {
+        try {
+          const mesh = await loadOutfitVisual(part.name, part.material, { role: part.role });
+          bodyGroup.add(mesh);
+          pieces += 1;
+        } catch (error) {
+          outfitMessage(`Cuerpo ${part.name}: ${errorText(error)}`, 'error');
+        }
+      }
+      group.add(bodyGroup);
+      outfitBody = bodyGroup;
+
+      for (const slot of ['body', 'head', 'hand', 'foot']) {
+        if (token !== outfitBuildToken) return;
+        const itemId = outfitState.entries[slot];
+        if (!itemId) continue;
+        const info = await api.outfitItemMeshes(state.moduleId, itemId);
+        const slotGroup = new THREE.Group();
+        slotGroup.name = slot;
+        for (const meshInfo of info.meshes) {
+          try {
+            const mesh = await loadOutfitVisual(meshInfo.name, meshInfo.material, { slot });
+            slotGroup.add(mesh);
+            pieces += 1;
+          } catch (error) {
+            outfitMessage(`${itemId}: ${errorText(error)}`, 'error');
+          }
+        }
+        if (slotGroup.children.length === 0) continue;
+        const transform = outfitTransform(slot);
+        slotGroup.position.set(transform.x, transform.y, transform.z);
+        slotGroup.scale.setScalar(transform.scale);
+        group.add(slotGroup);
+        outfitSlots[slot] = slotGroup;
+      }
+
+      if (token !== outfitBuildToken) return;
+      const box = new THREE.Box3().setFromObject(group);
+      if (!box.isEmpty()) {
+        controls.frame(bboxToJson(box));
+        const size = Math.max(
+          box.max[0] - box.min[0],
+          box.max[1] - box.min[1],
+          box.max[2] - box.min[2],
+          0.2,
+        );
+        grid.position.y = box.min[1] - 0.01;
+        grid.scale.setScalar(Math.max(0.5, size / 4));
+      }
+      if (!group.children.length) {
+        outfitMessage('No hay cuerpo ni prendas cargadas.', 'warning');
+      } else {
+        outfitMessage(`${pieces} pieza(s) · ${outfitState.skin} · ${box.isEmpty() ? 'sin bounds' : 'listo'}`);
+      }
+      dom.title.textContent = `Outfit · ${outfitState.skin}`;
+      setStatus(`Outfit: ${outfitState.name}`);
+    } catch (error) {
+      if (token !== outfitBuildToken) return;
+      outfitMessage(`No se pudo componer el outfit: ${errorText(error)}`, 'error');
+      setStatus(`Outfit: ${errorText(error)}`);
+    }
+  }
+
+  function renderOutfitClipping(result) {
+    if (!dom.outfitClipping) return;
+    if (!result.issues.length) {
+      dom.outfitClipping.replaceChildren(
+        el('div', { class: 'mat-message', text: 'Sin solapamientos bounding-box relevantes.' }),
+      );
+      return;
+    }
+    dom.outfitClipping.replaceChildren(
+      ...result.issues.map((issue) => el('div', {
+        class: `issue ${issue.severity}`,
+        title: issue.code,
+      }, [
+        el('div', { class: 'code', text: issue.code }),
+        el('div', { class: 'message', text: issue.message }),
+      ])),
+    );
+  }
+
+  async function analyzeOutfit() {
+    if (!outfitActive) return;
+    try {
+      const bodyBox = outfitBody ? new THREE.Box3().setFromObject(outfitBody) : null;
+      const items = [];
+      for (const slot of ['body', 'head', 'hand', 'foot']) {
+        const slotGroup = outfitSlots[slot];
+        if (!slotGroup || !outfitState.entries[slot]) continue;
+        items.push({
+          slot,
+          itemId: outfitState.entries[slot],
+          bbox: bboxToJson(new THREE.Box3().setFromObject(slotGroup)),
+        });
+      }
+      const result = await api.analyzeOutfit({
+        bodyBbox: bboxToJson(bodyBox),
+        items,
+      });
+      renderOutfitClipping(result);
+      outfitMessage(`Clipping: ${result.summary.errors} error(es), ${result.summary.warnings} aviso(s).`,
+        result.summary.errors ? 'error' : '');
+    } catch (error) {
+      outfitMessage(`No se pudo analizar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  function applyOutfitTransform() {
+    const slot = dom.outfitTransformSlot?.value ?? 'body';
+    outfitState.transforms = {
+      ...(outfitState.transforms ?? {}),
+      [slot]: {
+        x: Number(dom.outfitX?.value ?? 0) || 0,
+        y: Number(dom.outfitY?.value ?? 0) || 0,
+        z: Number(dom.outfitZ?.value ?? 0) || 0,
+        scale: Number(dom.outfitScale?.value ?? 1) || 1,
+      },
+    };
+    buildOutfit();
+  }
+
+  function presetOutfit() {
+    for (const slot of ['body', 'head', 'hand', 'foot']) {
+      const first = outfitItems.find((item) => item.slot === slot);
+      outfitState.entries[slot] = first?.id ?? '';
+    }
+    syncOutfitControls();
+    buildOutfit();
+  }
+
+  async function saveOutfit() {
+    try {
+      if (!outfitState.projectId) throw new EditError('NO_PROJECT', 'Selecciona un proyecto.');
+      const name = dom.outfitName?.value.trim() || outfitState.name;
+      const outfit = {
+        schemaVersion: 1,
+        id: slugify(name),
+        name,
+        moduleId: state.moduleId,
+        bodySkin: outfitState.skin,
+        entries: { ...outfitState.entries },
+        transforms: { ...(outfitState.transforms ?? {}) },
+        updatedAt: new Date().toISOString(),
+      };
+      await api.saveOutfit(outfitState.projectId, outfit);
+      outfitState.name = name;
+      outfitState.entries = { ...outfit.entries };
+      await refreshOutfitList();
+      if (dom.outfitList) dom.outfitList.value = outfit.id;
+      outfitMessage(`Outfit guardado: ${outfit.name}`);
+    } catch (error) {
+      outfitMessage(`No se pudo guardar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  async function loadOutfit() {
+    try {
+      if (!outfitState.projectId) throw new EditError('NO_PROJECT', 'Selecciona un proyecto.');
+      const outfitId = dom.outfitList?.value;
+      if (!outfitId) throw new EditError('NO_OUTFIT', 'Selecciona un outfit guardado.');
+      const result = await api.outfit(outfitState.projectId, outfitId);
+      const outfit = result.outfit;
+      outfitState.skin = outfit.bodySkin ?? 'man';
+      outfitState.name = outfit.name;
+      outfitState.entries = { ...emptyEntries(), ...(outfit.entries ?? {}) };
+      outfitState.transforms = { ...(outfit.transforms ?? {}) };
+      syncOutfitControls();
+      await buildOutfit();
+      outfitMessage(`Outfit cargado: ${outfit.name}`);
+    } catch (error) {
+      outfitMessage(`No se pudo cargar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  function exportOutfitSnapshot() {
+    if (!outfitActive || !renderer || !scene || !camera) {
+      outfitMessage('No hay una vista de outfit activa.', 'warning');
+      return;
+    }
+    try {
+      renderer.render(scene, camera);
+      const link = document.createElement('a');
+      link.href = renderer.domElement.toDataURL('image/png');
+      link.download = `outfit-${slugify(outfitState.name)}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      outfitMessage(`Snapshot exportado: ${link.download}`);
+    } catch (error) {
+      outfitMessage(`No se pudo exportar: ${errorText(error)}`, 'error');
+    }
+  }
+
+  async function deleteOutfit() {
+    try {
+      if (!outfitState.projectId) throw new EditError('NO_PROJECT', 'Selecciona un proyecto.');
+      const outfitId = dom.outfitList?.value;
+      if (!outfitId) throw new EditError('NO_OUTFIT', 'Selecciona un outfit guardado.');
+      const confirm = window.prompt(`Escribe el id para eliminar '${outfitId}':`, '');
+      if (confirm !== outfitId) {
+        outfitMessage('Eliminación cancelada.', 'warning');
+        return;
+      }
+      await api.removeOutfit(outfitState.projectId, outfitId, confirm);
+      await refreshOutfitList();
+      outfitMessage(`Outfit eliminado: ${outfitId}`);
+    } catch (error) {
+      outfitMessage(`No se pudo eliminar: ${errorText(error)}`, 'error');
+    }
+  }
+
   /* ---------------- init ---------------- */
 
   function init() {
@@ -901,7 +1425,10 @@ export function createViewer(ctx) {
     });
     dom.more.addEventListener('click', () => fetchPage(true));
     dom.resetCamera.addEventListener('click', () => {
-      if (model) {
+      if (outfitActive && outfitGroup) {
+        const bounds = bboxToJson(new THREE.Box3().setFromObject(outfitGroup));
+        if (bounds) controls.frame(bounds);
+      } else if (model) {
         const bounds = modelStats(model).bounds;
         if (bounds) controls.frame(bounds);
       }
@@ -914,6 +1441,7 @@ export function createViewer(ctx) {
       wireframe = !wireframe;
       dom.wire.classList.toggle('is-active', wireframe);
       if (material) material.wireframe = wireframe;
+      for (const cached of outfitCachedMaterials.values()) cached.wireframe = wireframe;
     });
     dom.flip.addEventListener('click', () => {
       flipV = !flipV;
@@ -921,6 +1449,11 @@ export function createViewer(ctx) {
       if (meshObject) {
         meshObject.geometry.setAttribute('uv', buildUvAttribute());
         meshObject.geometry.attributes.uv.needsUpdate = true;
+      }
+      if (outfitActive) {
+        for (const geometry of outfitCachedGeometries.values()) geometry.dispose();
+        outfitCachedGeometries.clear();
+        buildOutfit();
       }
       setMessage(flipV ? 'UV: V invertida (OpenBRF)' : 'UV: V original');
     });
@@ -952,6 +1485,46 @@ export function createViewer(ctx) {
 
     dom.tabMesh.addEventListener('click', () => setSideTab('mesh'));
     dom.tabMaterial.addEventListener('click', () => setSideTab('material'));
+    dom.tabOutfit.addEventListener('click', () => setSideTab('outfit'));
+
+    dom.outfitSkin.addEventListener('change', () => {
+      outfitState.skin = dom.outfitSkin.value;
+      buildOutfit();
+    });
+    for (const [slot, select] of [
+      ['body', dom.outfitSlotBody],
+      ['head', dom.outfitSlotHead],
+      ['hand', dom.outfitSlotHand],
+      ['foot', dom.outfitSlotFoot],
+    ]) {
+      select.addEventListener('change', () => {
+        outfitState.entries[slot] = select.value;
+        buildOutfit();
+      });
+    }
+    dom.outfitTransformSlot.addEventListener('change', () => {
+      const transform = outfitTransform(dom.outfitTransformSlot.value);
+      dom.outfitX.value = String(transform.x);
+      dom.outfitY.value = String(transform.y);
+      dom.outfitZ.value = String(transform.z);
+      dom.outfitScale.value = String(transform.scale);
+    });
+    dom.outfitApplyTransform.addEventListener('click', applyOutfitTransform);
+    dom.outfitRefresh.addEventListener('click', async () => {
+      await refreshOutfitData();
+      await buildOutfit();
+    });
+    dom.outfitPreset.addEventListener('click', presetOutfit);
+    dom.outfitAnalyze.addEventListener('click', analyzeOutfit);
+    dom.outfitSave.addEventListener('click', saveOutfit);
+    dom.outfitLoad.addEventListener('click', loadOutfit);
+    dom.outfitDelete.addEventListener('click', deleteOutfit);
+    dom.outfitExportSnapshot.addEventListener('click', exportOutfitSnapshot);
+    dom.outfitProject.addEventListener('change', async () => {
+      outfitState.projectId = dom.outfitProject.value;
+      await refreshOutfitList();
+    });
+
     dom.matPreview.addEventListener('click', () => applyMaterialPreview());
     dom.matSave.addEventListener('click', saveMaterial);
     dom.matLoad.addEventListener('click', loadMaterial);

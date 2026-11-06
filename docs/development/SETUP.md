@@ -87,6 +87,22 @@ In the Visor, switch the side panel to **Material**:
 
 Note: Warband material colours are **0–255**, not 0–1.
 
+## Outfit editor
+
+In the Visor, switch the side panel to **Outfit**:
+
+- choose the **Cuerpo** preset (`man` / `woman`);
+- choose one item for **Cuerpo / Cabeza / Manos / Pies**;
+- select an **Offset** slot, enter X/Y/Z and scale, then **Aplicar offset**;
+- **Preset** fills empty slots with the first available item;
+- **Analizar clipping** reports detached items and non-body bbox overlaps;
+- choose a project, type a name and **Guardar / Cargar / Eliminar**;
+- **Exportar PNG** downloads a snapshot of the current view.
+
+The body uses the module's real `skins.txt` and `skel_human` skeleton. Rigid
+parts (head, hands, helmets, gloves) are placed with bind bone matrices; armor
+is rendered in its stored bind pose.
+
 ## Tests
 
 ```bat
@@ -99,7 +115,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 5 result: **102 passing**.
+Expected Phase 6 result: **108 passing**.
 
 ## CLI tools
 
@@ -151,7 +167,7 @@ config/profiles.json  local installation profiles (created on first run)
 
 ## Safety rules for contributors
 
-1. Never add code that writes into the game installation in Phase 0/1.
+1. Never add code that writes into the game installation.
 2. Any new parser needs unit tests **and** an integration test against real files.
 3. Any new validation rule needs a stable code and a test.
 4. A new module in `engine/` must not import from `backend/` or `frontend/`.
@@ -174,6 +190,9 @@ config/profiles.json  local installation profiles (created on first run)
 | 3D viewer | `frontend/js/viewer.js`, `viewer-controls.js`, `dds.js` |
 | Mesh editor operations | `frontend/js/mesh-edit.js` |
 | Material editor | `frontend/js/viewer.js` (Material panel), `engine/resources/materialOverride.js` |
+| Outfit editor | `frontend/js/viewer.js` (Outfit panel), `engine/skins/skins.js`, `engine/outfit/clipping.js` |
+| Body/outfit data | `engine.getCharacter`, `getOutfitItemMeshes`, `getOutfitMeshRenderData` |
+| Outfit persistence | `projectStore.saveOutfit/listOutfits/getOutfit/removeOutfit` |
 | Texture import | `engine.importTexture`, `WorkspaceStore`, `project.textures` |
 | Override persistence/export | `engine/resources/meshOverride.js`, `projectStore.saveMeshOverride` |
 | Viewport data API | `engine.getMeshRenderData`, `engine.getTextureFile` |

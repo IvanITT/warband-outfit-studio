@@ -61,6 +61,8 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | `engine/resources/workspace.js` | Only write target: guarded paths, atomic writes, backups, SHA-256. | IMPLEMENTED |
 | `engine/resources/meshOverride.js` | Project mesh overrides: decode, validate, merge into a BRF. | IMPLEMENTED |
 | `engine/resources/materialOverride.js` | Material overrides: validate, merge fields, collect textures. | IMPLEMENTED |
+| `engine/skins/skins.js` | Parse `skins.txt` (body/calf/hand/head/skeleton per skin). | IMPLEMENTED |
+| `engine/outfit/clipping.js` | Bounding-box outfit clipping analysis. | IMPLEMENTED |
 | `engine/items/itemFlags.js` | Generated `itp_*` / `itcf_*` decoder. | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header parser. | IMPLEMENTED |
 | `engine/validation/*` | Rule catalogue + item chain validation. | IMPLEMENTED |
@@ -115,6 +117,31 @@ WorkspaceStore.writeFile()  -> workspace/<id>/... (atomic + backup + SHA-256)
 The installation is only read. Every persisted byte passes through
 `WorkspaceStore`, which rejects absolute paths and `..` escapes.
 
+## 6.1 Outfit composition flow (Phase 6)
+
+```
+engine.getCharacter(module, skin)
+        │  parse skins.txt -> body/calf/hand/head names
+        ▼
+resolve six mesh entries (body, calf.L/R, hand.L/R, head)
+        │
+        ├─ rigged mesh -> render stored bind-pose positions
+        └─ rigid mesh  -> apply skel_human global bind matrix
+
+engine.getOutfitItemMeshes(module, itemId)
+        │  base + LOD-0 pieces; gloves also load _R
+        ▼
+render arrays -> Three.js group per slot
+        │
+        ├─ per-slot translation/scale
+        ├─ bbox clipping analysis
+        └─ project.outfits[] record (item ids + transforms)
+```
+
+`skel_human` matrices are parsed once from `CommonRes/skeletons.brf` and
+cached per engine process. Rigid meshes are identified by an empty `rigging[]`
+array; skinned meshes keep their authored bind positions (ADR-031).
+
 ## 7. Indexing and cache
 - **Scope**: every `.brf` in `<install>/CommonRes` plus `<module>/Resource`.
 - **Cost measured**: 219 files / 147.5 MB → ~0.5 s cold parse in Node.
@@ -144,7 +171,12 @@ The cache is derived data and safe to delete.
 | GET | `/api/resources` | asset index (`type`, `q`, paging) |
 | GET | `/api/resources/:type/:name` | mesh/material/texture/shader detail + references |
 | GET | `/api/meshes/:name/geometry` | render-ready base64 typed arrays + bbox/counts |
+| GET | `/api/meshes/:name/outfit-render` | rigid-pose variant for character assembly (`slot`/`role`) |
 | GET | `/api/meshes/:name/editable` | editable model (shared positions, rigging, frames) |
+| GET | `/api/skins` | `skins.txt` skins and skeletons |
+| GET | `/api/characters` | resolved body parts for a skin |
+| GET | `/api/outfit-items/:id/meshes` | base/piece/glove-pair meshes for an item |
+| POST | `/api/outfits/analyze` | bounding-box clipping report |
 | GET/POST | `/api/projects/:id/meshes` | list/save mesh overrides |
 | GET/DELETE | `/api/projects/:id/meshes/:mesh` | load/delete an override |
 | POST | `/api/projects/:id/meshes/:mesh/export` | merge the override and write a workspace BRF |
@@ -164,6 +196,8 @@ The cache is derived data and safe to delete.
 | POST | `/api/projects` | create project `{ name, module, notes }` |
 | GET | `/api/projects/:id` | load project |
 | PUT | `/api/projects/:id` | save project (creates a backup) |
+| GET/POST | `/api/projects/:id/outfits` | list/save outfits |
+| GET/DELETE | `/api/projects/:id/outfits/:outfitId` | load/delete (typed confirmation) |
 
 Errors use a stable envelope:
 

@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 5 (current): texture & material system — material editing, DDS import, normal/spec preview, material overrides and workspace export.**
+- **Phase 6 (current): outfit & armor editor — real male/female bodies, slot composition, rigid-mesh bind posing, offsets, clipping report and outfit projects.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -35,7 +35,7 @@ node backend\server\index.js --open
 
 The server binds to `127.0.0.1:8791` (next free port if busy) and opens the UI.
 
-Views: **Prendas** (items), **Recursos** (mesh/material/texture/shader index), **Visor** (3D mesh preview), **Workspaces** (create/delete), **Copias** (backup catalogue and restore). The gear button manages installation profiles.
+Views: **Prendas** (items), **Recursos** (mesh/material/texture/shader index), **Visor** (mesh/material/outfit editor), **Workspaces** (create/delete), **Copias** (backup catalogue and restore). The gear button manages installation profiles.
 
 Configure the installation by copying `config/app.example.json` to `config/app.json` and setting `installationPath`, or with the `WARBAND_DIR` environment variable. `config/app.json` is machine-specific and git-ignored.
 
@@ -45,7 +45,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-102 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+108 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -79,6 +79,7 @@ backups/      automatic project backups
 - [3D viewport](docs/architecture/VIEWPORT.md)
 - [Mesh editor](docs/architecture/MESH-EDITOR.md)
 - [Textures & materials](docs/architecture/MATERIALS.md)
+- [Outfits & armor](docs/architecture/OUTFITS.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF format](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
@@ -94,4 +95,4 @@ backups/      automatic project backups
 
 ## Status
 
-Phase 5 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 6 scope.
+Phase 6 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 7 scope.

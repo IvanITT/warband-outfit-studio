@@ -291,3 +291,57 @@ texture orientation and normal-map presence, and is explicitly labelled.
 
 **Consequences:** specular intensity is not physically accurate; Phase 6+
 can add a custom shader if the preview becomes a blocker.
+
+## ADR-030 — Native bodies from `skins.txt` and `skel_human`
+
+**Decision:** the outfit editor uses the module's real `skins.txt` and the
+`skel_human` skeleton from `CommonRes/skeletons.brf`; it does not substitute a
+mannequin.
+
+**Rationale:** real body dimensions are required to judge armor fit and
+proportions. Native exposes both `man` and `woman` with six body parts each.
+The skeleton file is small, cached per engine process and read-only.
+
+**Consequences:** only skins present in the selected module can be previewed;
+custom skeletons need the same `skel_human` bone names for rigid-mesh posing.
+
+## ADR-031 — Bind matrices for rigid meshes, stored positions for skinned meshes
+
+**Decision:** a mesh with no rigging (head, hands, helmets, gloves) is moved
+from bone-local space into bind pose with the bone's global matrix. A mesh with
+rigging (body, armor, boots) already stores bind-pose positions and is rendered
+as authored.
+
+**Rationale:** VERIFIED on Native: `male_head`/`neckguard_helm_new` have empty
+`rigging[]` and head-local coordinates; `man_body`/`mail_shirt_a` are rigged and
+their raw bboxes already match the torso. Applying bone matrices to skinned
+meshes would double-transform them (bbox y rose to ~2.99).
+
+**Consequences:** no runtime skinning or animation; the rigid/skinned branch is
+the current approximation and must be revisited when skeleton posing is added.
+
+## ADR-032 — Outfits reference item ids
+
+**Decision:** project `outfits[]` entries store `{ id, name, moduleId,
+bodySkin, entries, transforms }` where `entries` contains item ids per slot.
+
+**Rationale:** item records and meshes are already indexed by the engine;
+copying them would duplicate data and drift. Validation can re-resolve every
+id at load/save time and report missing or wrong-slot items.
+
+**Consequences:** an outfit may become invalid if a module changes; loading
+fails with a structured error rather than silently omitting the item.
+
+## ADR-033 — Bounding-box clipping heuristic
+
+**Decision:** clipping reports (a) items whose bbox does not intersect the body
+bbox and (b) non-body item pairs whose bbox overlap exceeds 15% of the smaller
+volume. Body-vs-item containment is **not** reported.
+
+**Rationale:** armor normally encloses the body, arms and neck; a bbox overlap
+between a mail shirt and gloves is expected and not actionable. Mesh-level
+collision is out of scope for Phase 6. The heuristic is cheap and catches the
+common failure — a detached or mis-scaled accessory.
+
+**Consequences:** false negatives are possible for genuine surface clipping;
+Phase 9 can add vertex/triangle proximity without changing the API shape.

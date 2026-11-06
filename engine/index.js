@@ -11,6 +11,8 @@ import { readFile } from 'node:fs/promises';
 import { listModules, findModule } from './modules/moduleRegistry.js';
 import { detectInstallation, describeInstallation } from './installation/detect.js';
 import { ProfileStore } from './installation/profileStore.js';
+import { parseSkinsFile } from './skins/skins.js';
+import { analyzeOutfitClipping } from './outfit/clipping.js';
 import { parseItemKindsFile } from './items/itemKinds.js';
 import { decodeItemFlags, decodeCapabilities } from './items/itemFlags.js';
 import { createBrfIndex } from './resources/brfIndex.js';
@@ -38,6 +40,33 @@ import { resolveCaseInsensitive } from './util/fsx.js';
  * @property {Map<string, any>} ddsCache
  * @property {number} buildMs
  */
+
+/**
+ * Multiply two row-major 4x4 matrices.
+ * @param {Float64Array} a
+ * @param {Float64Array} b
+ */
+function multiplyMatrices(a, b) {
+  const out = new Float64Array(16);
+  for (let row = 0; row < 4; row += 1) {
+    for (let col = 0; col < 4; col += 1) {
+      let value = 0;
+      for (let k = 0; k < 4; k += 1) value += a[row * 4 + k] * b[k * 4 + col];
+      out[row * 4 + col] = value;
+    }
+  }
+  return out;
+}
+
+/** @param {any} bone */
+function boneLocalMatrix(bone) {
+  return new Float64Array([
+    bone.x[0], bone.y[0], bone.z[0], bone.t[0],
+    bone.x[1], bone.y[1], bone.z[1], bone.t[1],
+    bone.x[2], bone.y[2], bone.z[2], bone.t[2],
+    0, 0, 0, 1,
+  ]);
+}
 
 /**
  * @param {any} array Typed array.
@@ -87,6 +116,8 @@ export class WarbandEngine {
     this.moduleData = new Map();
     this.projects = new ProjectStore({ rootDir: options.projectRoot });
     this.workspaces = new WorkspaceStore({ rootDir: options.projectRoot });
+    /** @type {Map<string, {bones:Map<string,Float64Array>, applied:number}>} */
+    this.skeletonMatrixCache = new Map();
     this.profiles = new ProfileStore({ rootDir: options.projectRoot });
     this.initialized = false;
     this.initMs = 0;
@@ -603,7 +634,7 @@ export class WarbandEngine {
    *
    * @param {string} moduleId
    * @param {string} meshName
-   * @param {{ limits?: Partial<import('./resources/geometry.js').GeometryLimits> }} [options]
+   * @param {{ limits?: Partial<import('./resources/geometry.js').GeometryLimits>, rigidBone?: string|null }} [options]
    */
   async getMeshRenderData(moduleId, meshName, options = {}) {
     const { mesh, geometry } = await this.getMeshGeometry(moduleId, meshName, options);
@@ -612,26 +643,67 @@ export class WarbandEngine {
     const normals = new Float32Array(count * 3);
     const uvs = new Float32Array(count * 2);
 
+    /** @type {Float64Array|null} */
+    let rigid = null;
+    if (options.rigidBone && geometry.rigging.length === 0) {
+      const skeleton = await this.getSkeletonMatrices(moduleId);
+      rigid = skeleton.bones.get(options.rigidBone) ?? null;
+    }
+
     for (let v = 0; v < count; v += 1) {
       const positionIndex = geometry.vertices.index[v];
       if (positionIndex < 0 || positionIndex >= geometry.positionCount) {
         throw new Error(`Mesh '${meshName}' vertex ${v} references position ${positionIndex}`);
       }
-      positions[v * 3] = geometry.positions[positionIndex * 3];
-      positions[v * 3 + 1] = geometry.positions[positionIndex * 3 + 1];
-      positions[v * 3 + 2] = geometry.positions[positionIndex * 3 + 2];
-      normals[v * 3] = geometry.vertices.normal[v * 3];
-      normals[v * 3 + 1] = geometry.vertices.normal[v * 3 + 1];
-      normals[v * 3 + 2] = geometry.vertices.normal[v * 3 + 2];
+      const px = geometry.positions[positionIndex * 3];
+      const py = geometry.positions[positionIndex * 3 + 1];
+      const pz = geometry.positions[positionIndex * 3 + 2];
+      if (rigid) {
+        positions[v * 3] = rigid[0] * px + rigid[1] * py + rigid[2] * pz + rigid[3];
+        positions[v * 3 + 1] = rigid[4] * px + rigid[5] * py + rigid[6] * pz + rigid[7];
+        positions[v * 3 + 2] = rigid[8] * px + rigid[9] * py + rigid[10] * pz + rigid[11];
+      } else {
+        positions[v * 3] = px;
+        positions[v * 3 + 1] = py;
+        positions[v * 3 + 2] = pz;
+      }
+
+      const nx = geometry.vertices.normal[v * 3];
+      const ny = geometry.vertices.normal[v * 3 + 1];
+      const nz = geometry.vertices.normal[v * 3 + 2];
+      if (rigid) {
+        normals[v * 3] = rigid[0] * nx + rigid[1] * ny + rigid[2] * nz;
+        normals[v * 3 + 1] = rigid[4] * nx + rigid[5] * ny + rigid[6] * nz;
+        normals[v * 3 + 2] = rigid[8] * nx + rigid[9] * ny + rigid[10] * nz;
+      } else {
+        normals[v * 3] = nx;
+        normals[v * 3 + 1] = ny;
+        normals[v * 3 + 2] = nz;
+      }
       uvs[v * 2] = geometry.vertices.uv[v * 2];
       uvs[v * 2 + 1] = geometry.vertices.uv[v * 2 + 1];
+    }
+
+    let posedBbox = geometry.bbox;
+    if (rigid) {
+      const min = [Infinity, Infinity, Infinity];
+      const max = [-Infinity, -Infinity, -Infinity];
+      for (let v = 0; v < count; v += 1) {
+        for (let axis = 0; axis < 3; axis += 1) {
+          const value = positions[v * 3 + axis];
+          if (value < min[axis]) min[axis] = value;
+          if (value > max[axis]) max[axis] = value;
+        }
+      }
+      if (Number.isFinite(min[0])) posedBbox = { min, max };
     }
 
     return {
       mesh,
       layout: geometry.layout,
       uvFlip: 'v', // OpenBRF flips V for GL/Warband display
-      bbox: geometry.bbox,
+      bbox: posedBbox,
+      posed: { bone: options.rigidBone ?? null, applied: Boolean(rigid) },
       counts: { vertices: count, faces: geometry.faceCount, positions: geometry.positionCount },
       arrays: {
         positions: encodeTypedArray(positions),
@@ -640,6 +712,75 @@ export class WarbandEngine {
         indices: encodeTypedArray(geometry.faces),
       },
     };
+  }
+
+  /**
+   * Global bind-pose matrices for the human skeleton. Rigid meshes (heads,
+   * helmets, gloves, body parts) are authored in a bone-local space; the
+   * matrix moves them back into the character's bind pose. Skinned meshes
+   * already store bind-pose positions and are left untouched.
+   * @param {string} moduleId
+   * @param {string} [skeletonName]
+   */
+  async getSkeletonMatrices(moduleId, skeletonName = 'skel_human') {
+    const key = `${moduleId}:${skeletonName}`;
+    if (this.skeletonMatrixCache.has(key)) return this.skeletonMatrixCache.get(key);
+    const installation = this.requireInstallation();
+    const file = await resolveCaseInsensitive(path.join(installation.rootPath, 'CommonRes'), 'skeletons.brf');
+    if (!file) {
+      const error = new Error('CommonRes/skeletons.brf was not found.');
+      // @ts-expect-error machine-readable
+      error.code = 'SKELETON_NOT_FOUND';
+      throw error;
+    }
+    const doc = parseBrf(await readFile(file), { file });
+    const skeleton = doc.skeletons.find((candidate) => candidate.name === skeletonName);
+    if (!skeleton) {
+      const error = new Error(`Skeleton '${skeletonName}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'SKELETON_NOT_FOUND';
+      throw error;
+    }
+    /** @type {Map<string, Float64Array>} */
+    const bones = new Map();
+    for (let i = 0; i < skeleton.bones.length; i += 1) {
+      const bone = skeleton.bones[i];
+      const local = boneLocalMatrix(bone);
+      const parent = bone.attach >= 0 ? skeleton.bones[bone.attach] : null;
+      bones.set(bone.name, parent ? multiplyMatrices(bones.get(parent.name), local) : local);
+    }
+    const result = { bones, applied: 0 };
+    this.skeletonMatrixCache.set(key, result);
+    return result;
+  }
+
+  /**
+   * @param {string} moduleId
+   * @param {string} meshName
+   * @param {{ slot?: string, role?: string, bone?: string|null }} [options]
+   */
+  async getOutfitMeshRenderData(moduleId, meshName, options = {}) {
+    let bone = options.bone ?? null;
+    if (!bone && options.role) {
+      const roles = {
+        calf_l: 'calf.L',
+        calf_r: 'calf.R',
+        hand_l: 'hand.L',
+        hand_r: 'hand.R',
+        head: 'head',
+      };
+      bone = roles[options.role] ?? null;
+    }
+    if (!bone && options.slot === 'head') bone = 'head';
+    if (!bone && options.slot === 'hand') {
+      if (/_L$/i.test(meshName)) bone = 'hand.L';
+      else if (/_R$/i.test(meshName)) bone = 'hand.R';
+    }
+    if (!bone && options.slot === 'foot') {
+      if (/_L$/i.test(meshName)) bone = 'foot.L';
+      else if (/_R$/i.test(meshName)) bone = 'foot.R';
+    }
+    return this.getMeshRenderData(moduleId, meshName, { rigidBone: bone });
   }
 
   /**
@@ -983,6 +1124,203 @@ export class WarbandEngine {
   /** @param {string} projectId @param {string} name @param {string} confirm */
   async removeProjectTexture(projectId, name, confirm) {
     return this.projects.removeTexture(projectId, name, confirm);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Character bodies & outfits (Phase 6)                              */
+  /* ---------------------------------------------------------------- */
+
+  /** @param {string} moduleId */
+  async getSkins(moduleId) {
+    const module = this.requireModule(moduleId);
+    const file = await resolveCaseInsensitive(module.path, 'skins.txt');
+    if (!file) {
+      const error = new Error(`Module '${moduleId}' has no skins.txt.`);
+      // @ts-expect-error machine-readable
+      error.code = 'SKINS_NOT_FOUND';
+      throw error;
+    }
+    const parsed = await parseSkinsFile(file);
+    return {
+      file,
+      skins: parsed.skins.map((skin) => ({
+        name: skin.name,
+        flags: skin.flags,
+        skeleton: skin.skeleton,
+        scale: skin.scale,
+      })),
+    };
+  }
+
+  /**
+   * Resolve the meshes that form a character body.
+   * @param {string} moduleId
+   * @param {string} [skinName]
+   */
+  async getCharacter(moduleId, skinName = 'man') {
+    const data = await this.getModuleData(moduleId);
+    const module = this.requireModule(moduleId);
+    const file = await resolveCaseInsensitive(module.path, 'skins.txt');
+    if (!file) {
+      const error = new Error(`Module '${moduleId}' has no skins.txt.`);
+      // @ts-expect-error machine-readable
+      error.code = 'SKINS_NOT_FOUND';
+      throw error;
+    }
+    const parsed = await parseSkinsFile(file);
+    const skin = parsed.skins.find((candidate) => candidate.name === skinName);
+    if (!skin) {
+      const error = new Error(`Skin '${skinName}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'SKIN_NOT_FOUND';
+      throw error;
+    }
+
+    /** @type {Array<{role:string,name:string,material:string,brf:string}>} */
+    const parts = [];
+    const add = (role, name) => {
+      if (!name) return;
+      const resolution = data.brfIndex.resolveMesh(name);
+      const entry = resolution.direct[0] ?? resolution.base[0] ?? resolution.pieces[0];
+      if (!entry) return;
+      parts.push({ role, name: entry.name, material: entry.material, brf: entry.brf });
+    };
+
+    add('body', skin.body);
+    add('calf_l', skin.calf);
+    add('calf_r', skin.calf.replace(/_l$/i, '_r'));
+    add('hand_l', skin.hand);
+    add('hand_r', skin.hand.replace(/L$/i, 'R'));
+    add('head', skin.headMesh);
+
+    return {
+      skin: {
+        name: skin.name,
+        flags: skin.flags,
+        skeleton: skin.skeleton,
+        scale: skin.scale,
+      },
+      skins: parsed.skins.map((candidate) => candidate.name),
+      parts,
+    };
+  }
+
+  /**
+   * Meshes that visually compose an item (base + pieces, gloves L/R), without
+   * LODs.
+   * @param {string} moduleId
+   * @param {string} itemId
+   */
+  async getOutfitItemMeshes(moduleId, itemId) {
+    const data = await this.getModuleData(moduleId);
+    const item = data.itemsById.get(itemId.toLowerCase());
+    if (!item) {
+      const error = new Error(`Item '${itemId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'ITEM_NOT_FOUND';
+      throw error;
+    }
+    /** @type {Array<{name:string,material:string,brf:string}>} */
+    const meshes = [];
+    const seen = new Set();
+    const addMesh = (name) => {
+      if (!name || seen.has(name.toLowerCase())) return;
+      const resolution = data.brfIndex.resolveMesh(name);
+      const entry = resolution.direct[0] ?? resolution.base[0] ?? resolution.pieces[0];
+      if (!entry) return;
+      seen.add(entry.name.toLowerCase());
+      meshes.push({ name: entry.name, material: entry.material, brf: entry.brf });
+    };
+    const addFamily = (name) => {
+      const resolution = data.brfIndex.resolveMesh(name);
+      const base = resolution.base[0];
+      if (base) addMesh(base.name);
+      for (const piece of resolution.pieces) {
+        if (piece.nameInfo.lodLevel === 0) addMesh(piece.name);
+      }
+      if (!base && resolution.pieces.length > 0) {
+        for (const piece of resolution.pieces) if (piece.nameInfo.lodLevel === 0) addMesh(piece.name);
+      }
+    };
+
+    for (const ref of item.meshes) {
+      addFamily(ref.name);
+      if (/_L$/i.test(ref.name)) addFamily(ref.name.replace(/_L$/i, '_R'));
+    }
+    return { item: { id: item.id, name: item.name, slot: item.slot, category: item.category }, meshes };
+  }
+
+  /** @param {string} projectId @param {any} outfit */
+  async saveOutfit(projectId, outfit) {
+    const issues = await this.validateOutfitInternal(outfit);
+    if (issues.length > 0) {
+      const error = new Error(`Outfit is invalid: ${issues.join('; ')}`);
+      // @ts-expect-error machine-readable
+      error.code = 'INVALID_OUTFIT';
+      throw error;
+    }
+    return this.projects.saveOutfit(projectId, outfit);
+  }
+
+  /** @param {string} projectId */
+  async listOutfits(projectId) {
+    return this.projects.listOutfits(projectId);
+  }
+
+  /** @param {string} projectId @param {string} outfitId */
+  async getOutfit(projectId, outfitId) {
+    return this.projects.getOutfit(projectId, outfitId);
+  }
+
+  /** @param {string} projectId @param {string} outfitId @param {string} confirm */
+  async removeOutfit(projectId, outfitId, confirm) {
+    return this.projects.removeOutfit(projectId, outfitId, confirm);
+  }
+
+  /** @param {any} outfit */
+  async validateOutfitInternal(outfit) {
+    /** @type {string[]} */
+    const issues = [];
+    if (!outfit?.id) issues.push('id is required');
+    if (!outfit?.name) issues.push('name is required');
+    if (!outfit?.moduleId) issues.push('moduleId is required');
+    if (outfit?.bodySkin) {
+      try {
+        const skins = await this.getSkins(outfit.moduleId);
+        if (!skins.skins.some((skin) => skin.name === outfit.bodySkin)) {
+          issues.push(`body skin '${outfit.bodySkin}' does not exist`);
+        }
+      } catch (error) {
+        issues.push(`cannot resolve skins: ${error.message}`);
+      }
+    }
+    const slots = ['body', 'head', 'hand', 'foot'];
+    const entries = outfit?.entries ?? {};
+    for (const slot of slots) {
+      const itemId = entries[slot];
+      if (!itemId) continue;
+      const data = await this.getModuleData(outfit.moduleId);
+      const item = data.itemsById.get(String(itemId).toLowerCase());
+      if (!item) {
+        issues.push(`item '${itemId}' (${slot}) does not exist`);
+        continue;
+      }
+      if (item.slot !== slot) issues.push(`item '${itemId}' is slot '${item.slot}', expected '${slot}'`);
+    }
+    for (const [slot, transform] of Object.entries(outfit?.transforms ?? {})) {
+      if (!slots.includes(slot)) issues.push(`unknown transform slot '${slot}'`);
+      for (const key of ['x', 'y', 'z', 'scale']) {
+        if (transform[key] !== undefined && !Number.isFinite(Number(transform[key]))) {
+          issues.push(`transform ${slot}.${key} must be numeric`);
+        }
+      }
+    }
+    return issues;
+  }
+
+  /** @param {any} payload */
+  analyzeOutfit(payload) {
+    return analyzeOutfitClipping(payload);
   }
 
   /* ---------------------------------------------------------------- */

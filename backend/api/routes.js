@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.6.0',
-        phase: 5,
+        version: '0.7.0',
+        phase: 6,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -161,6 +161,17 @@ export function createApi(engine) {
       return { ok: true, module: moduleId, ...result };
     }
 
+    const outfitRender = urlPath.match(/^\/api\/meshes\/(.+)\/outfit-render$/);
+    if (method === 'GET' && outfitRender) {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.getOutfitMeshRenderData(moduleId, decodeURIComponent(outfitRender[1]), {
+        slot: query.get('slot') ?? undefined,
+        role: query.get('role') ?? undefined,
+        bone: query.get('bone') ?? undefined,
+      });
+      return { ok: true, module: moduleId, ...result };
+    }
+
     const meshGeometry = urlPath.match(/^\/api\/meshes\/(.+)\/geometry$/);
     if (method === 'GET' && meshGeometry) {
       const moduleId = query.get('module') ?? 'Native';
@@ -254,6 +265,63 @@ export function createApi(engine) {
       const moduleId = query.get('module') ?? 'Native';
       const result = await engine.getMaterialEditable(moduleId, decodeURIComponent(materialEditable[1]));
       return { ok: true, module: moduleId, ...result };
+    }
+
+    /* ---- character bodies & outfits ---- */
+
+    if (method === 'GET' && urlPath === '/api/skins') {
+      const moduleId = query.get('module') ?? 'Native';
+      return { ok: true, module: moduleId, ...(await engine.getSkins(moduleId)) };
+    }
+
+    if (method === 'GET' && urlPath === '/api/characters') {
+      const moduleId = query.get('module') ?? 'Native';
+      const skin = query.get('skin') ?? 'man';
+      return { ok: true, module: moduleId, ...(await engine.getCharacter(moduleId, skin)) };
+    }
+
+    const outfitMeshes = urlPath.match(/^\/api\/outfit-items\/([^/]+)\/meshes$/);
+    if (method === 'GET' && outfitMeshes) {
+      const moduleId = query.get('module') ?? 'Native';
+      return {
+        ok: true,
+        module: moduleId,
+        ...(await engine.getOutfitItemMeshes(moduleId, decodeURIComponent(outfitMeshes[1]))),
+      };
+    }
+
+    if (method === 'POST' && urlPath === '/api/outfits/analyze') {
+      return { ok: true, ...(engine.analyzeOutfit(body ?? {})) };
+    }
+
+    const projectOutfits = urlPath.match(/^\/api\/projects\/([^/]+)\/outfits$/);
+    if (projectOutfits) {
+      const projectId = decodeURIComponent(projectOutfits[1]);
+      if (method === 'GET') {
+        return { ok: true, outfits: await engine.listOutfits(projectId) };
+      }
+      if (method === 'POST') {
+        if (!body?.outfit) {
+          const error = new Error('Body must contain { outfit }');
+          // @ts-expect-error machine-readable
+          error.code = 'BAD_REQUEST';
+          throw error;
+        }
+        const outfit = await engine.saveOutfit(projectId, body.outfit);
+        return { ok: true, outfit };
+      }
+    }
+
+    const projectOutfit = urlPath.match(/^\/api\/projects\/([^/]+)\/outfits\/([^/]+)$/);
+    if (projectOutfit) {
+      const projectId = decodeURIComponent(projectOutfit[1]);
+      const outfitId = decodeURIComponent(projectOutfit[2]);
+      if (method === 'GET') {
+        return { ok: true, outfit: await engine.getOutfit(projectId, outfitId) };
+      }
+      if (method === 'DELETE') {
+        return { ok: true, ...(await engine.removeOutfit(projectId, outfitId, query.get('confirm') ?? '')) };
+      }
     }
 
     /* ---- project material & texture overrides ---- */

@@ -136,6 +136,7 @@ export class ProjectStore {
     }
     if (project.id !== id) throw new Error('Project id does not match its file name');
     project.meshes = project.meshes ?? [];
+    project.outfits = project.outfits ?? [];
     project.materials = project.materials ?? [];
     project.textures = project.textures ?? [];
     return project;
@@ -231,6 +232,67 @@ export class ProjectStore {
     }
     await this.save(project);
     return { removed: meshId };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Outfits (Phase 6)                                                 */
+  /* ---------------------------------------------------------------- */
+
+  /** @param {string} projectId @param {any} outfit */
+  async saveOutfit(projectId, outfit) {
+    const project = await this.load(projectId);
+    const index = project.outfits.findIndex((entry) => entry.id === outfit.id);
+    if (index >= 0) project.outfits[index] = outfit;
+    else project.outfits.push(outfit);
+    await this.save(project);
+    return outfit;
+  }
+
+  /** @param {string} projectId */
+  async listOutfits(projectId) {
+    const project = await this.load(projectId);
+    return project.outfits.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      moduleId: entry.moduleId,
+      bodySkin: entry.bodySkin,
+      entries: entry.entries,
+      updatedAt: entry.updatedAt,
+    }));
+  }
+
+  /** @param {string} projectId @param {string} outfitId */
+  async getOutfit(projectId, outfitId) {
+    const project = await this.load(projectId);
+    const outfit = project.outfits.find((entry) => entry.id === outfitId);
+    if (!outfit) {
+      const error = new Error(`Outfit '${outfitId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'OUTFIT_NOT_FOUND';
+      throw error;
+    }
+    return outfit;
+  }
+
+  /** @param {string} projectId @param {string} outfitId @param {string} confirm */
+  async removeOutfit(projectId, outfitId, confirm) {
+    if (confirm !== outfitId) {
+      const error = new Error('Confirmation required: pass the outfit id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const project = await this.load(projectId);
+    const before = project.outfits.length;
+    project.outfits = project.outfits.filter((entry) => entry.id !== outfitId);
+    if (project.outfits.length === before) {
+      const error = new Error(`Outfit '${outfitId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'OUTFIT_NOT_FOUND';
+      throw error;
+    }
+    await this.save(project);
+    return { removed: outfitId };
   }
 
   /* ---------------------------------------------------------------- */

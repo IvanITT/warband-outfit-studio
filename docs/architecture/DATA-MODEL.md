@@ -147,6 +147,7 @@ MeshRenderData
   layout      0 | 1 | 2
   uvFlip      'v'  (OpenBRF convention)
   bbox        { min, max } | null
+  posed       { bone: string|null, applied: boolean }
   counts      { vertices, faces, positions }
   arrays      {
     positions: { type:'Float32Array', count, data: base64 },
@@ -186,6 +187,46 @@ Material overrides (`project.materials[]`) store the material fields plus
 record `{ name, workspaceId, path, width, height, format, mipmaps, sha256 }`;
 material export copies every referenced texture into the workspace.
 **Material colours are 0–255, not 0–1 (VERIFIED).**
+
+### 3.3 Character bodies and outfit records
+
+```
+CharacterBody
+  skin    { name, flags, skeleton, scale }
+  skins[] string
+  parts[] { role: body|calf_l|calf_r|hand_l|hand_r|head,
+            name, material, brf }
+```
+
+`role` maps to the skeleton bone used when a part is rigid. `posed` in
+`MeshRenderData` reports `{ bone, applied }`; `applied=false` means the mesh was
+skinned and its authored bind positions were kept.
+
+Outfit (`project.outfits[]`):
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "knight-demo",
+  "name": "Knight Demo",
+  "moduleId": "Native",
+  "bodySkin": "man",
+  "entries": {
+    "body": "itm_mail_shirt",
+    "head": "itm_helmet_with_neckguard",
+    "hand": "itm_leather_gloves",
+    "foot": "itm_leather_boots"
+  },
+  "transforms": {
+    "head": { "x": 0, "y": 0.02, "z": 0, "scale": 1 }
+  },
+  "updatedAt": "..."
+}
+```
+
+`entries` keys are fixed to `body|head|hand|foot`; each value is an item id or
+`null`. `transforms` is a per-slot map; missing slots default to `0,0,0,1`.
+The record references items, it does not copy item data (ADR-032).
 
 ## 4. Resolved chain
 ```
@@ -243,7 +284,7 @@ WarbandProject
   target          { installationId, installationPath, moduleId }
   assets[]        { id, kind: mesh|material|texture|item, name, notes }
   items[]         { id, baseItemId, notes, overrides }
-  outfits[]       { id, name, slot, itemIds[] }
+  outfits[]       { id, name, moduleId, bodySkin, entries, transforms, updatedAt }
   validation      { lastRunAt, summary }
   notes
 ```

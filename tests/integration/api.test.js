@@ -132,6 +132,68 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   assert.equal(created.ok, true);
   assert.equal(created.project.id, 'api-test-project');
 
+  const skinsResponse = await fetch(`${base}/api/skins?module=Native`);
+  const skins = await skinsResponse.json();
+  assert.equal(skins.ok, true);
+  assert.deepEqual(skins.skins.map((skin) => skin.name), ['man', 'woman']);
+
+  const characterResponse = await fetch(`${base}/api/characters?module=Native&skin=woman`);
+  const character = await characterResponse.json();
+  assert.equal(character.skin.name, 'woman');
+  assert.equal(character.parts.length, 6);
+
+  const outfitRenderResponse = await fetch(
+    `${base}/api/meshes/male_head/outfit-render?module=Native&role=head`,
+  );
+  const posedHead = await outfitRenderResponse.json();
+  assert.equal(posedHead.posed.bone, 'head');
+  assert.equal(posedHead.posed.applied, true);
+  assert.ok(posedHead.bbox.min[1] > 1.4);
+
+  const analyzeResponse = await fetch(`${base}/api/outfits/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bodyBbox: { min: [-1, -1, -1], max: [1, 1, 1] },
+      items: [{ slot: 'head', itemId: 'helmet', bbox: { min: [10, 10, 10], max: [11, 11, 11] } }],
+    }),
+  });
+  const analysis = await analyzeResponse.json();
+  assert.equal(analysis.summary.warnings, 1);
+
+  const outfit = {
+    schemaVersion: 1,
+    id: 'api-outfit',
+    name: 'API Outfit',
+    moduleId: 'Native',
+    bodySkin: 'man',
+    entries: { body: 'itm_mail_shirt', head: '', hand: 'itm_leather_gloves', foot: '' },
+    transforms: {},
+  };
+  const saveOutfitResponse = await fetch(`${base}/api/projects/${created.project.id}/outfits`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ outfit }),
+  });
+  assert.equal(saveOutfitResponse.status, 200);
+  assert.equal((await saveOutfitResponse.json()).outfit.id, 'api-outfit');
+
+  const outfitsResponse = await fetch(`${base}/api/projects/${created.project.id}/outfits`);
+  assert.equal((await outfitsResponse.json()).outfits.length, 1);
+  const outfitResponse = await fetch(`${base}/api/projects/${created.project.id}/outfits/api-outfit`);
+  assert.equal((await outfitResponse.json()).outfit.name, 'API Outfit');
+
+  const badOutfitDelete = await fetch(
+    `${base}/api/projects/${created.project.id}/outfits/api-outfit?confirm=wrong`,
+    { method: 'DELETE' },
+  );
+  assert.equal(badOutfitDelete.status, 400);
+  const outfitDelete = await fetch(
+    `${base}/api/projects/${created.project.id}/outfits/api-outfit?confirm=api-outfit`,
+    { method: 'DELETE' },
+  );
+  assert.equal(outfitDelete.status, 200);
+
   const projectResponse = await fetch(`${base}/api/projects/${created.project.id}`);
   const project = await projectResponse.json();
   project.project.notes = 'edited through the API';
