@@ -7,6 +7,7 @@ import { createResourcesView } from './resources.js';
 import { createBackupsView } from './backups.js';
 import { createWorkspacesView } from './workspaces.js';
 import { createViewer } from './viewer.js';
+import { createBuildView } from './build.js';
 import { createInstallations } from './installations.js';
 
 const state = {
@@ -38,6 +39,7 @@ const dom = {
     outfits: document.getElementById('view-outfits'),
     resources: document.getElementById('view-resources'),
     viewer: document.getElementById('view-viewer'),
+    build: document.getElementById('view-build'),
     workspaces: document.getElementById('view-workspaces'),
     backups: document.getElementById('view-backups'),
   },
@@ -62,6 +64,14 @@ const dom = {
   resourceDetail: document.getElementById('resource-detail'),
   resourceRefs: document.getElementById('resource-refs'),
   resourceRefsCount: document.getElementById('resource-refs-count'),
+  // build
+  buildCount: document.getElementById('build-count'),
+  buildProject: document.getElementById('build-project'),
+  buildCopyModule: document.getElementById('build-copy-module'),
+  buildStart: document.getElementById('build-start'),
+  buildRefresh: document.getElementById('build-refresh'),
+  buildList: document.getElementById('build-list'),
+  buildResult: document.getElementById('build-result'),
   // viewer
   viewerCount: document.getElementById('viewer-count'),
   viewerSearch: document.getElementById('viewer-search'),
@@ -210,6 +220,28 @@ const resources = createResourcesView({
   setStatus,
   openItem,
   openViewer,
+});
+
+const buildView = createBuildView({
+  api,
+  state,
+  dom: {
+    count: dom.buildCount,
+    project: dom.buildProject,
+    copyModule: dom.buildCopyModule,
+    start: dom.buildStart,
+    refresh: dom.buildRefresh,
+    list: dom.buildList,
+    result: dom.buildResult,
+    buildCount: dom.buildCount,
+    buildProject: dom.buildProject,
+    buildCopyModule: dom.buildCopyModule,
+    buildStart: dom.buildStart,
+    buildRefresh: dom.buildRefresh,
+    buildList: dom.buildList,
+    buildResult: dom.buildResult,
+  },
+  setStatus,
 });
 
 const backups = createBackupsView({
@@ -419,6 +451,7 @@ async function loadCurrentView() {
   if (state.view === 'outfits') await outfits.loadModule(state.moduleId);
   else if (state.view === 'resources') await resources.load(state.moduleId);
   else if (state.view === 'viewer') await viewer.loadList(state.moduleId);
+  else if (state.view === 'build') await buildView.load();
   else if (state.view === 'workspaces') await workspaces.load();
   else await backups.load();
   updateHint();
@@ -437,6 +470,8 @@ async function switchView(view) {
   } else if (view === 'viewer') {
     viewer.setActive(true);
     await viewer.loadList(state.moduleId);
+  } else if (view === 'build') {
+    await buildView.load();
   } else if (view === 'workspaces') {
     await workspaces.load();
   } else {
@@ -531,6 +566,7 @@ async function init() {
   setStatus('Conectando con el motor…');
   outfits.init();
   resources.init();
+  buildView.init();
   backups.init();
   workspaces.init();
   viewer.init();

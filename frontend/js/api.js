@@ -53,6 +53,13 @@ export const api = {
   itemSchema: () => request('/api/item-schema'),
   validate: (module, ids) => request('/api/validate', { method: 'POST', body: { module, ids } }),
   projects: () => request('/api/projects'),
+  buildProject: (projectId, body = {}) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/build`,
+    { method: 'POST', body },
+  ),
+  builds: () => request('/api/builds'),
+  build: (buildId) => request(`/api/builds/${encodeURIComponent(buildId)}`),
+
   itemOverrides: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/items`),
   itemOverride: (projectId, itemId) => request(
     `/api/projects/${encodeURIComponent(projectId)}/items/${encodeURIComponent(itemId)}`,

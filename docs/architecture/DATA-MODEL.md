@@ -360,6 +360,29 @@ Invariants and safety rules (tested):
 `WorkspaceStore.writeBrf()` serializes a `BrfDocument` and writes it through the
 same guarded path.
 
+### 7.1 Build manifest
+
+Every build workspace contains `build.json` and `build.log`:
+
+```
+BuildManifest
+  schemaVersion       1
+  id                  workspace id (build-<project>-<timestamp>)
+  projectId, projectName
+  moduleId, moduleRoot
+  mode                overlay | module
+  createdAt
+  sourceInstallation
+  overrides           { meshes, materials, items }
+  summary             { files, meshes, materials, items }
+  warnings[], errors[]
+  files[]             { kind, source, target, bytes, sha256 }
+```
+
+`mode:"overlay"` contains only changed assets. `mode:"module"` additionally
+contains a full copy of the source module before the overlay is applied. Both
+are workspace artifacts; no path outside `workspace/` is written.
+
 ## 8. Installation profiles
 ```
 ProfilesDocument

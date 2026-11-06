@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 7 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 8**
+> Current phase: **Phase 8 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 9**
 
 ---
 
@@ -146,6 +146,7 @@ Detailed documents:
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Outfits](docs/architecture/OUTFITS.md)
 - [Items](docs/architecture/ITEMS.md)
+- [Builder](docs/architecture/BUILDER.md)
 - [Format map](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
 
@@ -327,11 +328,18 @@ Completed:
 
 **Exit met:** `itm_mail_shirt` edited and `itm_test_new_armor` created; exported 621-record file re-parsed correctly; source `item_kinds1.txt` SHA-256 unchanged.
 
-### Phase 8 — Warband Builder & Exporter
+### Phase 8 — Warband Builder & Exporter — **COMPLETE (2026-11-06)**
 
-- Project → validate → build → resources → item integration → module integration.
-- Collision detection, backups, build logs, clear errors.
-- **Exit:** a build produces a deployable module copy in `workspace/`, with a dry-run report.
+Completed:
+
+- Build pipeline merges mesh, material, texture and item overrides.
+- Validation gate stops on invalid overrides or target collisions before any workspace write.
+- Overlay builds write only changed assets; full-module builds copy the whole module first.
+- `build.json` manifest with file hashes and `build.log`; build list/detail UI.
+- Grouped overrides by source BRF; textures deduplicated.
+- 111 automated tests.
+
+**Exit met:** a real Native project with mesh + material + item overrides produced a workspace overlay (4+ artifacts) with the edited material and item, source hashes unchanged; full-copy mode verified on Native (75.6 MB, `module.ini` present).
 
 ### Phase 9 — Validation, Backup, Recovery & Automated Testing
 
@@ -348,9 +356,9 @@ Completed:
 
 ## 9. Current Phase
 
-**Phase 7 is COMPLETE.** All Phase 7 deliverables are implemented, tested and documented.
+**Phase 8 is COMPLETE.** All Phase 8 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 8.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 9.
 
 ### Roadmap reconciliation (accepted)
 
@@ -576,27 +584,56 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 
 ---
 
-## 11. Pending Work
+### Phase 8 (2026-11-06)
 
-### Phase 8 (proposed, not authorized)
+**Project builder & exporter**
 
-1. **Build pipeline** — project → validation → workspace module snapshot → build log.
-2. **Deployment** — explicit confirmation, hash-recorded backup, module copy.
-3. **Integration** — item overrides + mesh/material/texture overrides merged into one build.
-4. **Dry run** — diff/report before touching a module.
-5. **Tests/docs** — end-to-end build/rollback, destructive-operation safety.
+- `buildProject`: groups mesh/material overrides by source BRF, applies them sequentially, merges item overrides, copies referenced textures and writes a workspace artifact.
+- **Validation gate** stops before writing on invalid artifacts, missing textures, item errors or target collisions.
+- Two modes: `overlay` (changed assets only) and `module` (full module copy first, then overlay).
+- `build.json` manifest with file kind/source/target/bytes/SHA-256 and `build.log`.
+- Build view: project selector, full-copy checkbox, build list, manifest and log.
+- API: `POST /api/projects/:id/build`, `GET /api/builds`, `GET /api/builds/:id`.
+- 111 automated tests.
 
-### Explicitly out of Phase 8
+**Verification**
 
-Live game process patching, automated Steam/GOG deployment, animation editing.
+- 111/111 tests in ~5.5 s (build integration + API).
+- Real mesh + material + item project produced an overlay with 4+ artifacts; edited material fields and item name were present in the output.
+- Source BRF/item hashes unchanged.
+- Invalid item mesh stopped the build without creating a workspace.
+- Full-copy mode verified manually on Native: 75.6 MB, `module.ini` present, ~2.2 s.
+- No game files were written.
 
-### Backlog after Phase 8
+**Deployment stance**
 
-- Phase 9: hardening/recovery; Phase 10: packaging.
+The original safety invariant remains: the game installation is read-only. A
+`module` build is a deployable module tree inside `workspace/`; applying it to
+the game is a deliberate manual copy, not an automated write (ADR-037).
 
 ---
 
-## 12. Known Issues (after Phase 7)
+## 11. Pending Work
+
+### Phase 9 (proposed, not authorized)
+
+1. **Hardening** — backup retention/pruning, build rollback and diff preview.
+2. **Recovery** — restore module/workspace/build snapshots with hash verification.
+3. **Validation expansion** — material/texture chain checks in the build gate.
+4. **Module integration** — optional `module.ini` resource rewriting.
+5. **Tests/docs** — destructive paths, retention, rollback, end-to-end recovery.
+
+### Explicitly out of Phase 9
+
+Live game deployment, process patching, animation/troop/scene editors.
+
+### Backlog after Phase 9
+
+- Phase 10: packaging, first-run setup, logs, accessibility.
+
+---
+
+## 12. Known Issues (after Phase 8)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
@@ -628,6 +665,11 @@ Live game process patching, automated Steam/GOG deployment, animation editing.
 | 26 | Existing item ids cannot be changed; no reference migration | Medium | Future item migration |
 | 27 | Item factions and triggers are preserved but not editable | Low | Future item editor pass |
 | 28 | Item deletion is not exposed; only project overrides can be removed | Low | Future item editor pass |
+| 29 | Builds never deploy into the live game; only workspace artifacts are produced | High | Documented safety invariant (ADR-037) |
+| 30 | Overlay builds assume `module.ini` already loads changed BRF basenames | Medium | Phase 9 rewrite |
+| 31 | Full-copy builds can be multi-GB; explicit option only | Medium | Documented |
+| 32 | No build diff viewer, rollback or retention policy | Medium | Phase 9 |
+| 33 | Build validation checks override structure/chains but not every game shader/engine condition | Medium | Phase 9 |
 
 ---
 
@@ -660,6 +702,10 @@ Live game process patching, automated Steam/GOG deployment, animation editing.
 | Item export | Compiled item file only; factions/triggers preserved but not edited | Module System writer + item migration in Phase 8+ |
 | Item preview | Base module item; override meshes/names need a rebuild | Add override-aware preview in a later pass |
 | Item validation | Mesh existence is checked, but material/texture chain health is delegated to the existing validator | Reuse full chain rules before build |
+| Build deployment | Workspace-only; no live module install | Phase 10 packaging/deploy workflow |
+| Build module.ini | Overlay relies on existing resource entries | Add resource rewrite in Phase 9 |
+| Build retention | Every build is kept under `workspace/` | Add pruning/retention in Phase 9 |
+| Build diff | Manifest lists files but no pre/post byte diff | Add diff viewer in Phase 9 |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
 | Backups | No pruning/retention policy (ADR-020) | Phase 9 |
@@ -709,6 +755,9 @@ Live game process patching, automated Steam/GOG deployment, animation editing.
 | ADR-034 | Item overrides reference a base record; existing ids are immutable | Accepted (Phase 7) |
 | ADR-035 | Export compiled `item_kinds1.txt` to a workspace | Accepted (Phase 7) |
 | ADR-036 | Validate item references, save overrides separately | Accepted (Phase 7) |
+| ADR-037 | Builds write only to workspaces; deployment stays manual | Accepted (Phase 8) |
+| ADR-038 | Group overrides by source BRF | Accepted (Phase 8) |
+| ADR-039 | Full module copies are explicit | Accepted (Phase 8) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -758,12 +807,16 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-36 | Adding a record changes only the declared count and appends one separator block | Native 620 → 621 export re-parsed | **VERIFIED** | new item export |
 | F-37 | Existing item ids are referenced externally by troops/scripts; renaming in place is unsafe | item docs + Module System conventions | **LIKELY** | ADR-034 |
 | F-38 | A new item with a valid mesh but no material chain can still be exported structurally; visual validation remains separate | item export tests | **VERIFIED** | item validation limits |
+| F-39 | Multiple mesh/material overrides in one source BRF must be applied sequentially to a single output | build integration test + Native BRF grouping | **VERIFIED** | `buildProject` grouping |
+| F-40 | A full Native module copy is 75.6 MB and completes in ~2.2 s locally | manual copy test | **VERIFIED** | full-copy mode |
+| F-41 | CommonRes BRFs can be placed in the module `Resource/` by basename; Native already lists common resources in `module.ini` | Native `load_resource` entries | **LIKELY** | build layout |
+| F-42 | Build artifacts are fully described by target path + SHA-256 without re-parsing every output | manifest/log tests | **VERIFIED** | build manifest |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **109 / 109 passing** (~5.9 s), zero dependencies.
+**Command:** `npm test` - **111 / 111 passing** (~5.5 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -791,6 +844,7 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `integration/skins` | 1 | Native `skins.txt`, both bodies, missing skin |
 | `integration/outfits` | 1 | item meshes, rigid pose, outfit save/load/delete/validation |
 | `integration/items` | 1 | editable record, override validation, new item export, source hash |
+| `integration/build` | 2 | overlay artifact grouping, source hashes, invalid-build gate |
 | `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
 | `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, outfits, CSP, static, 404 |
 
@@ -801,6 +855,17 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 8 completed
+
+- **Builder**: grouped mesh/material BRF merges, item merge, texture copy, validation gate.
+- **Modes**: workspace overlay and explicit full-module copy.
+- **Manifest/log**: file hashes, override counts, warnings, build log.
+- **UI/API**: Build view, build list/detail, `/api/projects/:id/build`, `/api/builds`.
+- **Safety**: installation remains read-only; deployment artifact stays in workspace.
+- **Tests**: 111 passing (build integration/API).
+- Docs: `docs/architecture/BUILDER.md`, data model/architecture/ADR-037..039.
+- Milestone tag: `phase-8-builder`.
 
 ### 2026-11-06 - Phase 7 completed
 
@@ -904,27 +969,27 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 8 — Warband Builder & Exporter** (proposed; requires explicit approval).
+**Phase 9 — Validation, Backup, Recovery & Hardening** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Project build | collect mesh/material/texture/item overrides | a complete build manifest is produced |
-| Validation gate | run chain and project validation before writing | invalid builds stop with a report |
-| Workspace snapshot | assemble a deployable module copy under `workspace/` | dry-run output is browsable |
-| Deployment | explicit confirmation, hash-recorded backup, module copy | reversible deployment |
-| Build log | per-file actions, hashes, warnings and timings | auditable report |
-| Tests/docs | end-to-end build/rollback, API/UI | green and documented |
+| Build retention | prune old build workspaces with confirmation | bounded disk usage |
+| Build rollback | restore a previous build/module snapshot | reproducible recovery |
+| Diff viewer | compare source vs built files, hashes and bytes | clear change report |
+| Validation expansion | material/texture chain checks in the build gate | fewer late failures |
+| module.ini integration | optional `load_resource` additions for new BRFs | overlay loads correctly |
+| Tests/docs | retention, rollback, diff, destructive paths | green and documented |
 
-### Explicitly out of Phase 8
+### Explicitly out of Phase 9
 
-Live process patching, automatic Steam/GOG deployment, animation/troop/scene editors.
+Live game deployment, animation/troop/scene editors, packaging.
 
 ### Decisions requested with this approval
 
-1. **Deployment target**: build a full module copy in a workspace first (proposed) vs write directly into a module.
-2. **Backups**: hash-recorded module snapshot before any write (proposed) vs file-level only.
-3. **Integration**: merge all existing project override types in one build (proposed) vs item/mesh only.
+1. **Retention**: keep the last N builds (proposed) vs time-based vs manual only.
+2. **Rollback**: restore a build workspace snapshot (proposed) vs only re-run a build.
+3. **Deployment**: keep game writes disabled (proposed) until a dedicated packaging phase.
 
 **Waiting for explicit user approval.**

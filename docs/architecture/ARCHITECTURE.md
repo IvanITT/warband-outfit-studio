@@ -67,8 +67,9 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | `engine/textures/dds.js` | DDS header parser. | IMPLEMENTED |
 | `engine/validation/*` | Rule catalogue + item chain validation. | IMPLEMENTED |
 | `engine/projects/projectStore.js` | JSON projects, atomic writes, automatic backups, restore. | IMPLEMENTED |
+| `engine.buildProject` | Merge override artifacts into a workspace overlay or full module copy. | IMPLEMENTED |
 | `engine/resources/workspace.js` | Workspace lifecycle, guarded writes, backups, restore. | IMPLEMENTED |
-| Future: `engine/exporters/` | Write items/BRF and deploy to a module with confirmation. | PLANNED |
+| `engine.buildProject` | Workspace overlay / full module build (Phase 8). | IMPLEMENTED |
 
 ## 5. Data flow: resolving one item
 
@@ -162,6 +163,29 @@ engine.exportItemOverrides(project)
 The item file writer reuses untouched raw headers and separators, so a vanilla
 load/save remains byte-identical. Exporting never writes to the game.
 
+## 6.3 Build flow (Phase 8)
+
+```
+project overrides
+  ├─ group mesh overrides by source BRF -> apply sequentially -> one BRF
+  ├─ group material overrides by source BRF -> apply -> copy textures
+  └─ merge item overrides into item_kinds1.txt
+        │
+        ▼
+validation gate (no writes on failure)
+        │
+        ▼
+build workspace
+  Modules/<module>/Resource/<changed>.brf
+  Modules/<module>/Textures/<copy>.dds
+  Modules/<module>/item_kinds1.txt
+  build.json + build.log
+```
+
+`mode:"overlay"` writes only changed assets; `mode:"module"` first copies the
+whole module and then applies the overlay. Both live entirely under
+`workspace/`; the game installation is never written.
+
 ## 7. Indexing and cache
 - **Scope**: every `.brf` in `<install>/CommonRes` plus `<module>/Resource`.
 - **Cost measured**: 219 files / 147.5 MB → ~0.5 s cold parse in Node.
@@ -221,6 +245,9 @@ The cache is derived data and safe to delete.
 | GET/POST | `/api/projects/:id/items` | list/save item overrides |
 | GET/DELETE | `/api/projects/:id/items/:itemId` | load/delete (typed confirmation) |
 | POST | `/api/projects/:id/items/export` | merge item overrides into a workspace |
+| POST | `/api/projects/:id/build` | validate and build a workspace overlay/module |
+| GET | `/api/builds` | list build workspaces |
+| GET | `/api/builds/:id` | read a build manifest and log |
 | GET/POST | `/api/projects/:id/outfits` | list/save outfits |
 | GET/DELETE | `/api/projects/:id/outfits/:outfitId` | load/delete (typed confirmation) |
 

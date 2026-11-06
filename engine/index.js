@@ -7,7 +7,7 @@
  */
 
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { readFile, cp, mkdir } from 'node:fs/promises';
 import { listModules, findModule } from './modules/moduleRegistry.js';
 import { detectInstallation, describeInstallation } from './installation/detect.js';
 import { ProfileStore } from './installation/profileStore.js';
@@ -590,7 +590,7 @@ export class WarbandEngine {
    * @param {string} projectId
    * @param {{ workspaceLabel?: string }} [options]
    */
-  async exportItemOverrides(projectId, options = {}) {
+  async buildItemOverridesArtifact(projectId) {
     const project = await this.projects.load(projectId);
     if (!project.items.length) {
       const error = new Error('The project has no item overrides.');
@@ -625,17 +625,294 @@ export class WarbandEngine {
     const text = serializeItemDocument({ ...data.items, items }, {
       rerender: (item) => rerender.has(item.id),
     });
+    return { moduleId, text, items: items.length, overrides: project.items.length };
+  }
+
+  async exportItemOverrides(projectId, options = {}) {
+    const artifact = await this.buildItemOverridesArtifact(projectId);
     const workspace = await this.createWorkspace(options.workspaceLabel ?? 'item-edits', {
       reuse: true,
-      moduleId,
+      moduleId: artifact.moduleId,
     });
-    const result = await this.workspaces.writeFile(workspace.id, 'item_kinds1.txt', text);
+    const result = await this.workspaces.writeFile(workspace.id, 'item_kinds1.txt', artifact.text);
     return {
       ...result,
       workspaceId: workspace.id,
-      items: items.length,
-      overrides: project.items.length,
+      items: artifact.items,
+      overrides: artifact.overrides,
     };
+  }
+
+  /**
+   * Build a project into a workspace overlay (or a full module copy).
+   *
+   * The game installation is only read. Overlay mode writes changed assets at
+   * their in-module paths plus a manifest; a full copy first mirrors the whole
+   * module, then applies the same overlay, producing a deployable module tree
+   * inside the workspace.
+   *
+   * @param {string} projectId
+   * @param {{ copyModule?: boolean, label?: string }} [options]
+   */
+  async buildProject(projectId, options = {}) {
+    const project = await this.projects.load(projectId);
+    const moduleId = project.target.moduleId;
+    const module = this.requireModule(moduleId);
+    await this.getModuleData(moduleId);
+    const moduleRoot = `Modules/${path.basename(module.path)}`;
+    const copyModule = Boolean(options.copyModule);
+
+    /** @type {Array<{kind:string, source:string, target:string, buffer:Buffer, sha256?:string}>} */
+    const artifacts = [];
+    /** @type {string[]} */
+    const errors = [];
+    /** @type {string[]} */
+    const warnings = [];
+
+    const installationRoot = path.resolve(this.requireInstallation().rootPath);
+    const meshGroups = new Map();
+    for (const override of project.meshes) {
+      const sourcePath = path.resolve(override.source.brf);
+      const key = sourcePath.toLowerCase();
+      if (!meshGroups.has(key)) meshGroups.set(key, { sourcePath, overrides: [] });
+      meshGroups.get(key).overrides.push(override);
+    }
+    for (const group of meshGroups.values()) {
+      try {
+        if (group.sourcePath !== installationRoot && !group.sourcePath.startsWith(installationRoot + path.sep)) {
+          throw new Error('BRF source is outside the installation');
+        }
+        const source = await readFile(group.sourcePath);
+        let buffer = source;
+        const meshes = [];
+        for (const override of group.overrides) {
+          const result = applyOverride(buffer, override, { file: group.sourcePath });
+          buffer = result.buffer;
+          meshes.push(result.mesh.name);
+        }
+        artifacts.push({
+          kind: 'mesh',
+          source: path.relative(installationRoot, group.sourcePath).replace(/\\/g, '/'),
+          target: `${moduleRoot}/Resource/${path.basename(group.sourcePath)}`,
+          buffer,
+        });
+      } catch (error) {
+        errors.push(`mesh group '${group.overrides.map((override) => override.id).join(', ')}': ${error.message}`);
+      }
+    }
+
+    const materialGroups = new Map();
+    for (const override of project.materials) {
+      const sourcePath = path.resolve(override.source.brf);
+      const key = sourcePath.toLowerCase();
+      if (!materialGroups.has(key)) materialGroups.set(key, { sourcePath, overrides: [] });
+      materialGroups.get(key).overrides.push(override);
+    }
+    const data = await this.getModuleData(moduleId);
+    for (const group of materialGroups.values()) {
+      try {
+        if (group.sourcePath !== installationRoot && !group.sourcePath.startsWith(installationRoot + path.sep)) {
+          throw new Error('BRF source is outside the installation');
+        }
+        const source = await readFile(group.sourcePath);
+        let buffer = source;
+        for (const override of group.overrides) {
+          buffer = applyMaterialOverrideToBrf(buffer, override, { file: group.sourcePath }).buffer;
+        }
+        artifacts.push({
+          kind: 'material',
+          source: path.relative(installationRoot, group.sourcePath).replace(/\\/g, '/'),
+          target: `${moduleRoot}/Resource/${path.basename(group.sourcePath)}`,
+          buffer,
+        });
+        for (const override of group.overrides) {
+          for (const textureName of referencedTextures(override.fields)) {
+            const normalized = textureName.toLowerCase().endsWith('.dds') ? textureName : `${textureName}.dds`;
+            const projectTexture = project.textures.find(
+              (entry) => entry.name.toLowerCase() === normalized.toLowerCase(),
+            );
+            let textureBuffer;
+            let sourceKind;
+            if (projectTexture) {
+              textureBuffer = await this.workspaces.readFile(projectTexture.workspaceId, projectTexture.path);
+              sourceKind = 'project';
+            } else {
+              const hit = data.textures.resolve(textureName);
+              if (!hit.exists || !hit.filePath) {
+                throw new Error(`texture '${textureName}' was not found`);
+              }
+              textureBuffer = await readFile(hit.filePath);
+              sourceKind = 'game';
+            }
+            artifacts.push({
+              kind: 'texture',
+              source: sourceKind,
+              target: `${moduleRoot}/Textures/${normalized}`,
+              buffer: textureBuffer,
+            });
+          }
+        }
+      } catch (error) {
+        errors.push(`material group '${group.overrides.map((override) => override.id).join(', ')}': ${error.message}`);
+      }
+    }
+
+    if (project.items.length > 0) {
+      try {
+        const artifact = await this.buildItemOverridesArtifact(projectId);
+        artifacts.push({
+          kind: 'items',
+          source: `${moduleRoot}/item_kinds1.txt`,
+          target: `${moduleRoot}/item_kinds1.txt`,
+          buffer: Buffer.from(artifact.text, 'utf8'),
+        });
+      } catch (error) {
+        errors.push(`items: ${error.message}`);
+      }
+    }
+
+    const targets = new Map();
+    const uniqueArtifacts = [];
+    for (const artifact of artifacts) {
+      const existing = targets.get(artifact.target);
+      if (existing) {
+        if (artifact.kind === 'texture' && artifact.buffer.equals(existing.buffer)) continue;
+        errors.push(`two build artifacts target '${artifact.target}'`);
+        continue;
+      }
+      targets.set(artifact.target, artifact);
+      uniqueArtifacts.push(artifact);
+    }
+    if (uniqueArtifacts.length === 0 && !copyModule) {
+      errors.push('the project has no mesh, material or item overrides to build');
+    }
+    if (!project.meshes.length && !project.materials.length && !project.items.length) {
+      warnings.push('project contains no game-asset overrides; only a module copy will be produced');
+    }
+    if (errors.length > 0) {
+      const error = new Error(`Build validation failed: ${errors.join('; ')}`);
+      // @ts-expect-error machine-readable
+      error.code = 'BUILD_VALIDATION_FAILED';
+      // @ts-expect-error machine-readable
+      error.details = { errors, warnings };
+      throw error;
+    }
+
+    const label = options.label ?? `build-${project.id}-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    const workspace = await this.createWorkspace(label, { moduleId });
+    const moduleTarget = this.workspaces.resolve(workspace.id, moduleRoot);
+    if (copyModule) {
+      await mkdir(path.dirname(moduleTarget), { recursive: true });
+      await cp(module.path, moduleTarget, { recursive: true, force: true });
+    }
+
+    /** @type {Array<{kind:string, source:string, target:string, bytes:number, sha256:string}>} */
+    const files = [];
+    for (const artifact of uniqueArtifacts) {
+      const written = await this.workspaces.writeFile(workspace.id, artifact.target, artifact.buffer);
+      files.push({
+        kind: artifact.kind,
+        source: artifact.source,
+        target: artifact.target,
+        bytes: written.bytes,
+        sha256: written.sha256,
+      });
+    }
+
+    const manifest = {
+      schemaVersion: 1,
+      id: workspace.id,
+      projectId: project.id,
+      projectName: project.name,
+      moduleId,
+      moduleRoot,
+      mode: copyModule ? 'module' : 'overlay',
+      createdAt: new Date().toISOString(),
+      sourceInstallation: this.requireInstallation().rootPath,
+      overrides: {
+        meshes: project.meshes.length,
+        materials: project.materials.length,
+        items: project.items.length,
+      },
+      summary: {
+        files: files.length,
+        meshes: project.meshes.length,
+        materials: project.materials.length,
+        items: project.items.length,
+      },
+      warnings,
+      errors,
+      files,
+    };
+    const manifestResult = await this.workspaces.writeFile(
+      workspace.id,
+      'build.json',
+      JSON.stringify(manifest, null, 2),
+    );
+    const log = [
+      `Build ${workspace.id}`,
+      `Project: ${project.id} (${project.name})`,
+      `Module: ${moduleId}`,
+      `Mode: ${manifest.mode}`,
+      `Created: ${manifest.createdAt}`,
+      `Overrides: ${project.meshes.length} mesh, ${project.materials.length} material, ${project.items.length} item`,
+      '',
+      'Files:',
+      ...files.map((file) => `  ${file.kind.padEnd(8)} ${file.target} (${file.bytes} B, ${file.sha256})`),
+      '',
+      warnings.length ? `Warnings:\n${warnings.map((warning) => `  - ${warning}`).join('\n')}` : 'Warnings: none',
+      '',
+    ].join('\n');
+    await this.workspaces.writeFile(workspace.id, 'build.log', log);
+    return {
+      buildId: workspace.id,
+      workspaceId: workspace.id,
+      moduleRoot,
+      mode: manifest.mode,
+      manifest,
+      manifestFile: manifestResult.file,
+      files,
+      warnings,
+      errors,
+    };
+  }
+
+  async listBuilds() {
+    const builds = [];
+    for (const workspace of await this.workspaces.list()) {
+      try {
+        const raw = await this.workspaces.readFile(workspace.id, 'build.json');
+        const manifest = JSON.parse(raw.toString('utf8'));
+        builds.push({
+          id: workspace.id,
+          label: workspace.label,
+          projectId: manifest.projectId,
+          projectName: manifest.projectName,
+          moduleId: manifest.moduleId,
+          mode: manifest.mode,
+          createdAt: manifest.createdAt,
+          summary: manifest.summary,
+        });
+      } catch {
+        /* not a build workspace */
+      }
+    }
+    builds.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    return { builds };
+  }
+
+  /** @param {string} buildId */
+  async getBuild(buildId) {
+    try {
+      const manifest = JSON.parse((await this.workspaces.readFile(buildId, 'build.json')).toString('utf8'));
+      const log = (await this.workspaces.readFile(buildId, 'build.log')).toString('utf8');
+      return { buildId, manifest, log };
+    } catch {
+      const error = new Error(`Build '${buildId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'BUILD_NOT_FOUND';
+      throw error;
+    }
   }
 
   /**
@@ -1174,7 +1451,7 @@ export class WarbandEngine {
    * @param {string} meshId
    * @param {{ workspaceLabel?: string }} [options]
    */
-  async exportMeshOverride(projectId, meshId, options = {}) {
+  async buildMeshOverrideArtifact(projectId, meshId) {
     const installation = this.requireInstallation();
     const override = await this.projects.getMeshOverride(projectId, meshId);
     const sourcePath = path.resolve(override.source.brf);
@@ -1188,20 +1465,31 @@ export class WarbandEngine {
 
     const source = await readFile(sourcePath);
     const { buffer, mesh } = applyOverride(source, override, { file: sourcePath });
+    return {
+      override,
+      sourcePath,
+      sourceRelative: path.relative(root, sourcePath).replace(/\\/g, '/'),
+      buffer,
+      mesh,
+    };
+  }
+
+  async exportMeshOverride(projectId, meshId, options = {}) {
+    const artifact = await this.buildMeshOverrideArtifact(projectId, meshId);
     const workspace = await this.createWorkspace(options.workspaceLabel ?? 'mesh-edits', {
       reuse: true,
-      moduleId: override.source.moduleId,
+      moduleId: artifact.override.source.moduleId,
     });
-    const fileName = `${mesh.name.replace(/[^A-Za-z0-9._-]+/g, '_')}.brf`;
-    const result = await this.workspaces.writeFile(workspace.id, fileName, buffer);
+    const fileName = `${artifact.mesh.name.replace(/[^A-Za-z0-9._-]+/g, '_')}.brf`;
+    const result = await this.workspaces.writeFile(workspace.id, fileName, artifact.buffer);
     return {
       ...result,
       workspaceId: workspace.id,
-      sourceBrf: sourcePath,
-      mesh: mesh.name,
-      bytes: buffer.length,
-      vertices: mesh.vertexCount,
-      faces: mesh.faceCount,
+      sourceBrf: artifact.sourcePath,
+      mesh: artifact.mesh.name,
+      bytes: artifact.buffer.length,
+      vertices: artifact.mesh.vertexCount,
+      faces: artifact.mesh.faceCount,
     };
   }
 
@@ -1324,7 +1612,7 @@ export class WarbandEngine {
    * @param {string} materialId
    * @param {{ workspaceLabel?: string }} [options]
    */
-  async exportMaterialOverride(projectId, materialId, options = {}) {
+  async buildMaterialOverrideArtifacts(projectId, materialId) {
     const installation = this.requireInstallation();
     const project = await this.projects.load(projectId);
     const override = project.materials.find((entry) => entry.id === materialId);
@@ -1346,14 +1634,7 @@ export class WarbandEngine {
 
     const source = await readFile(sourcePath);
     const { buffer, material } = applyMaterialOverrideToBrf(source, override, { file: sourcePath });
-    const workspace = await this.createWorkspace(options.workspaceLabel ?? 'materials', {
-      reuse: true,
-      moduleId: override.source.moduleId,
-    });
-    const brfName = `${material.name.replace(/[^A-Za-z0-9._-]+/g, '_')}.brf`;
-    const brfResult = await this.workspaces.writeFile(workspace.id, brfName, buffer);
-
-    const textureResults = [];
+    const textures = [];
     const data = await this.getModuleData(override.source.moduleId);
     for (const textureName of referencedTextures(override.fields)) {
       const normalized = textureName.toLowerCase().endsWith('.dds') ? textureName : `${textureName}.dds`;
@@ -1376,16 +1657,45 @@ export class WarbandEngine {
         textureBuffer = await readFile(hit.filePath);
         sourceKind = 'game';
       }
-      const written = await this.workspaces.writeFile(workspace.id, `Textures/${normalized}`, textureBuffer);
-      textureResults.push({ name: normalized, path: written.file, source: sourceKind, sha256: written.sha256 });
+      textures.push({ name: normalized, buffer: textureBuffer, source: sourceKind });
+    }
+
+    return {
+      override,
+      sourcePath,
+      sourceRelative: path.relative(root, sourcePath).replace(/\\/g, '/'),
+      material,
+      buffer,
+      textures,
+    };
+  }
+
+  async exportMaterialOverride(projectId, materialId, options = {}) {
+    const artifact = await this.buildMaterialOverrideArtifacts(projectId, materialId);
+    const workspace = await this.createWorkspace(options.workspaceLabel ?? 'materials', {
+      reuse: true,
+      moduleId: artifact.override.source.moduleId,
+    });
+    const brfName = `${artifact.material.name.replace(/[^A-Za-z0-9._-]+/g, '_')}.brf`;
+    const brfResult = await this.workspaces.writeFile(workspace.id, brfName, artifact.buffer);
+
+    const textureResults = [];
+    for (const texture of artifact.textures) {
+      const written = await this.workspaces.writeFile(workspace.id, `Textures/${texture.name}`, texture.buffer);
+      textureResults.push({
+        name: texture.name,
+        path: written.file,
+        source: texture.source,
+        sha256: written.sha256,
+      });
     }
 
     return {
       workspaceId: workspace.id,
-      material: material.name,
-      sourceBrf: sourcePath,
+      material: artifact.material.name,
+      sourceBrf: artifact.sourcePath,
       file: brfResult.file,
-      bytes: buffer.length,
+      bytes: artifact.buffer.length,
       textures: textureResults,
     };
   }

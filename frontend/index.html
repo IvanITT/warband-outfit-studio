@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.8.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.9.0" />
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 7</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 8</p>
         </div>
       </div>
 
@@ -41,6 +41,7 @@
       <button class="viewtab is-active" data-view="outfits" type="button">Prendas</button>
       <button class="viewtab" data-view="resources" type="button">Recursos</button>
       <button class="viewtab" data-view="viewer" type="button">Visor</button>
+      <button class="viewtab" data-view="build" type="button">Build</button>
       <button class="viewtab" data-view="workspaces" type="button">Workspaces</button>
       <button class="viewtab" data-view="backups" type="button">Copias</button>
       <span class="viewnav-spacer"></span>
@@ -315,6 +316,43 @@
       </section>
     </main>
 
+    <main id="view-build" class="view build-view" hidden>
+      <section class="panel build-panel">
+        <div class="panel-head">
+          <h2>Build del proyecto</h2>
+          <span id="build-count" class="counter">—</span>
+        </div>
+        <div class="build-controls">
+          <label class="build-field">
+            <span>Proyecto</span>
+            <select id="build-project"></select>
+          </label>
+          <label class="build-check">
+            <input id="build-copy-module" type="checkbox" />
+            Copia completa del módulo
+          </label>
+          <button id="build-start" class="primary" type="button">Construir</button>
+          <button id="build-refresh" class="ghost small" type="button">Actualizar</button>
+        </div>
+        <p class="hint build-hint">
+          La instalación es de solo lectura. El build se escribe en un workspace;
+          la copia completa produce un árbol de módulo desplegable manualmente.
+        </p>
+        <div class="build-grid">
+          <div>
+            <h3 class="section-title">Builds</h3>
+            <div id="build-list" class="build-list"></div>
+          </div>
+          <div>
+            <h3 class="section-title">Resultado</h3>
+            <div id="build-result" class="build-result">
+              <p class="muted">Selecciona un proyecto y construye.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
     <main id="view-workspaces" class="view" hidden>      <section class="panel workspaces-panel">
         <div class="panel-head">
           <h2>Workspaces</h2>
@@ -344,7 +382,7 @@
     <footer class="statusbar">
       <span id="status-text">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 7 · Ítems</span>
+      <span class="status-meta">Fase 8 · Build</span>
     </footer>
   </div>
 
@@ -371,6 +409,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.8.0"></script>
+  <script type="module" src="/js/app.js?v=0.9.0"></script>
 </body>
 </html>

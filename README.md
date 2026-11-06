@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 7 (current): item editor — full item records, symbolic flags, mesh references, validation, project overrides and workspace item export.**
+- **Phase 8 (current): project builder — validated mesh/material/item builds, workspace overlays, full module copies, manifests and build logs.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -35,7 +35,7 @@ node backend\server\index.js --open
 
 The server binds to `127.0.0.1:8791` (next free port if busy) and opens the UI.
 
-Views: **Prendas** (items + item editor), **Recursos** (mesh/material/texture/shader index), **Visor** (mesh/material/outfit editor), **Workspaces** (create/delete), **Copias** (backup catalogue and restore). The gear button manages installation profiles.
+Views: **Prendas** (items + item editor), **Recursos** (mesh/material/texture/shader index), **Visor** (mesh/material/outfit editor), **Build**, **Workspaces** (create/delete), **Copias** (backup catalogue and restore). The gear button manages installation profiles.
 
 Configure the installation by copying `config/app.example.json` to `config/app.json` and setting `installationPath`, or with the `WARBAND_DIR` environment variable. `config/app.json` is machine-specific and git-ignored.
 
@@ -45,7 +45,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-109 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+111 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -81,6 +81,7 @@ backups/      automatic project backups
 - [Textures & materials](docs/architecture/MATERIALS.md)
 - [Outfits & armor](docs/architecture/OUTFITS.md)
 - [Item editor](docs/architecture/ITEMS.md)
+- [Builder](docs/architecture/BUILDER.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF format](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
@@ -92,8 +93,8 @@ backups/      automatic project backups
 - The engine opens game files read-only.
 - Projects are written to `projects/` inside this repository.
 - Saving an existing project copies the previous revision to `backups/projects/`.
-- Exporting into a module is **not implemented** yet. Serialized BRFs can be written to `workspace/`; deployment (Phase 8) will require explicit confirmation and a hash-recorded backup.
+- Builds write overlays or full module copies under `workspace/`; the game installation is still never modified. Live deployment is intentionally manual and outside the current build pipeline.
 
 ## Status
 
-Phase 7 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 8 scope.
+Phase 8 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 9 scope.

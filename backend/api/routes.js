@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.8.0',
-        phase: 7,
+        version: '0.9.0',
+        phase: 8,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -306,6 +306,27 @@ export function createApi(engine) {
 
     if (method === 'POST' && urlPath === '/api/outfits/analyze') {
       return { ok: true, ...(engine.analyzeOutfit(body ?? {})) };
+    }
+
+    const projectBuild = urlPath.match(/^\/api\/projects\/([^/]+)\/build$/);
+    if (method === 'POST' && projectBuild) {
+      const projectId = decodeURIComponent(projectBuild[1]);
+      return {
+        ok: true,
+        ...(await engine.buildProject(projectId, {
+          copyModule: body?.copyModule === true,
+          label: body?.label,
+        })),
+      };
+    }
+
+    if (method === 'GET' && urlPath === '/api/builds') {
+      return { ok: true, ...(await engine.listBuilds()) };
+    }
+
+    const buildDetail = urlPath.match(/^\/api\/builds\/([^/]+)$/);
+    if (method === 'GET' && buildDetail) {
+      return { ok: true, ...(await engine.getBuild(decodeURIComponent(buildDetail[1]))) };
     }
 
     const projectItemsExport = urlPath.match(/^\/api\/projects\/([^/]+)\/items\/export$/);

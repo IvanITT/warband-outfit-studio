@@ -63,6 +63,7 @@ function statusFor(code) {
     case 'INVALID_OUTFIT':
     case 'INVALID_ITEM':
     case 'NO_ITEM_OVERRIDES':
+    case 'BUILD_VALIDATION_FAILED':
     case 'MISSING_TEXTURE':
       return 400;
     case 'BACKUP_CORRUPT':
@@ -83,6 +84,7 @@ function statusFor(code) {
     case 'SKELETON_NOT_FOUND':
     case 'OUTFIT_NOT_FOUND':
     case 'ITEM_OVERRIDE_NOT_FOUND':
+    case 'BUILD_NOT_FOUND':
       return 404;
     case 'INSTALLATION_NOT_FOUND':
       return 503;
@@ -217,7 +219,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const started = await startServer();
   console.log('');
-  console.log('  WARBand Outfit Studio — Phase 7');
+  console.log('  WARBand Outfit Studio — Phase 8');
   console.log(`  ${started.url}`);
   if (!started.engine.installation) {
     console.log('  WARNING: no Warband installation detected. See /api/status for candidates.');

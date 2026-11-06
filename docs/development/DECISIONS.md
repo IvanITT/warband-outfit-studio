@@ -386,3 +386,42 @@ backed up like all other project data.
 **Consequences:** a new item cannot reference a mesh that has not been indexed
 yet (for example, a mesh in an unbuilt BRF); the author must first make the mesh
 available to the module.
+
+## ADR-037 — Builds write only to workspaces; deployment stays manual
+
+**Decision:** the Phase 8 builder writes an overlay or a full module copy under
+`workspace/`. It never writes into the Warband installation. A full module copy
+is the deployable artifact; applying it is a deliberate manual action.
+
+**Rationale:** the project's safety invariant is that the game installation is
+read-only. A bug in a build must not be able to corrupt a live module. A
+workspace tree can be inspected, backed up and copied deliberately.
+
+**Consequences:** there is no one-click "install into game" action yet. This is
+intentional until a later packaging phase and a user-controlled deployment
+target exist.
+
+## ADR-038 — Group overrides by source BRF
+
+**Decision:** mesh and material overrides that share a source BRF are applied
+sequentially to one buffer and written as one output BRF. Artifacts that target
+the same path with different content fail the build.
+
+**Rationale:** writing each override independently would overwrite earlier
+changes in the same pack. Grouping reflects how BRF files actually store many
+objects.
+
+**Consequences:** a build can report a target collision; the author must resolve
+it before writing. Textures with identical content are deduplicated.
+
+## ADR-039 — Full module copies are explicit
+
+**Decision:** overlay mode is the default. A full module copy is an explicit
+checkbox/API option because installed modules range from 75 MB to more than
+2 GB.
+
+**Rationale:** silently copying multi-gigabyte content on every build is a poor
+default; overlays are fast and sufficient for review.
+
+**Consequences:** authors who want a standalone deployable module choose the
+full-copy mode; the build manifest records the mode.

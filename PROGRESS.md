@@ -712,3 +712,79 @@ export endpoints.
 ### Milestone
 
 Tag `phase-7-item-editor`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 8 — Warband Builder & Exporter
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Turn a project's mesh, material and item overrides into a validated, auditable
+workspace build — without writing into the game installation.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Pipeline | group mesh/material overrides by source BRF, apply sequentially, merge items, copy textures |
+| Validation gate | stops before writing on invalid artifacts, missing textures, item errors or target collisions |
+| Modes | workspace overlay (default) and full module copy (explicit) |
+| Manifest/log | `build.json` with target paths, bytes and SHA-256; human-readable `build.log` |
+| API | `POST /api/projects/:id/build`, `GET /api/builds`, `GET /api/builds/:id` |
+| UI | **Build** view: project selector, full-copy checkbox, build list, manifest and log |
+| Tests | 111 automated tests |
+
+### Tests
+
+`npm test` → **111 / 111 passing** (~5.5 s).
+
+New suite:
+
+- `integration/build` (2): overlay with real mesh/material/item overrides,
+  grouped target output, source hashes unchanged; invalid build gate.
+
+`integration/api` extended with build creation/list/detail.
+
+### Verified against real data
+
+- Real project: `mail_shirt_a` mesh move, `mail_shirt_a` material colour/specular
+  change, `itm_mail_shirt` item edit.
+- Build overlay produced changed `armors_g.brf`, `materials.brf`, textures and
+  `item_kinds1.txt`; parsed material and item output matched the overrides.
+- Source BRF hashes unchanged; invalid item mesh produced no workspace.
+- Full-copy mode verified manually on Native: 75.6 MB, `module.ini` present,
+  ~2.2 s.
+- The game installation remains read-only; deployment is a manual copy of a
+  `module` build.
+
+### Findings
+
+1. **Multiple overrides in one source BRF must be grouped** and applied
+   sequentially (F-39).
+2. **Full Native copy is 75.6 MB** and completes in ~2.2 s locally (F-40).
+3. **CommonRes BRFs can be placed in module `Resource/` by basename**; Native
+   already has matching `load_resource` entries (F-41, LIKELY).
+4. **Build manifests are sufficient to audit outputs** by path + SHA-256 (F-42).
+
+### Known limitations
+
+- No live game deployment; only workspace artifacts.
+- Overlay relies on existing `module.ini` resource entries.
+- Full-copy builds can be multi-GB for VC/NW.
+- No diff viewer, rollback or retention policy yet.
+- Build validation cannot prove every engine shader condition.
+
+### Documentation updated
+
+- New `docs/architecture/BUILDER.md`.
+- `PROJECT_PLAN.md` (Phase 8 complete, Phase 9 proposed, ADR-037…039,
+  findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`,
+  `docs/development/{DECISIONS,SETUP}.md`, `README.md`, version 0.9.0.
+
+### Milestone
+
+Tag `phase-8-builder`. No game files were modified. `npm test` green.

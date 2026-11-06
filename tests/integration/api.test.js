@@ -259,6 +259,24 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   assert.equal(itemExport.overrides, 1);
   assert.ok(itemExport.file.endsWith('item_kinds1.txt'));
 
+  const buildResponse = await fetch(`${base}/api/projects/${created.project.id}/build`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  assert.equal(buildResponse.status, 200);
+  const build = await buildResponse.json();
+  assert.equal(build.mode, 'overlay');
+  assert.ok(build.manifest.summary.files >= 1);
+  assert.ok(build.files.some((file) => file.kind === 'items'));
+
+  const buildsResponse = await fetch(`${base}/api/builds`);
+  const builds = await buildsResponse.json();
+  assert.ok(builds.builds.some((entry) => entry.id === build.buildId));
+  const buildDetailResponse = await fetch(`${base}/api/builds/${build.buildId}`);
+  const buildDetail = await buildDetailResponse.json();
+  assert.equal(buildDetail.manifest.projectId, created.project.id);
+
   const itemOverrideDelete = await fetch(
     `${base}/api/projects/${created.project.id}/items/itm_mail_shirt?confirm=itm_mail_shirt`,
     { method: 'DELETE' },

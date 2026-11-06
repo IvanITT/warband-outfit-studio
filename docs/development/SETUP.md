@@ -119,6 +119,20 @@ In **Prendas**, select an item and click **Editar ítem**:
 
 The export is a workspace copy, not a deployment.
 
+## Build
+
+Open **Build**:
+
+- choose a project and click **Construir**;
+- optionally enable **Copia completa del módulo**;
+- inspect the validation result, manifest, file list and log;
+- builds are written under `workspace/build-<project>-<timestamp>/`.
+- overlay mode writes only changed assets; full mode copies the whole module
+  first. Neither mode writes into the game installation.
+
+An overlay expects the module's existing `load_resource` entries to load changed
+BRF basenames. A full module copy is a deployable tree inside the workspace.
+
 ## Tests
 
 ```bat
@@ -131,7 +145,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 7 result: **109 passing**.
+Expected Phase 8 result: **111 passing**.
 
 ## CLI tools
 
@@ -211,6 +225,8 @@ config/profiles.json  local installation profiles (created on first run)
 | Outfit persistence | `projectStore.saveOutfit/listOutfits/getOutfit/removeOutfit` |
 | Item editor | `frontend/js/item-editor.js`, `engine.getItemEditable/validateItemOverride` |
 | Item persistence/export | `projectStore.saveItemOverride`, `engine.exportItemOverrides` |
+| Build pipeline | `engine.buildProject`, `frontend/js/build.js` |
+| Build artifacts | workspace `<id>/build.json`, `build.log`, `Modules/...` |
 | Texture import | `engine.importTexture`, `WorkspaceStore`, `project.textures` |
 | Override persistence/export | `engine/resources/meshOverride.js`, `projectStore.saveMeshOverride` |
 | Viewport data API | `engine.getMeshRenderData`, `engine.getTextureFile` |
