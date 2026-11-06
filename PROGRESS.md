@@ -889,7 +889,7 @@ setup, diagnostics/logs, recovery guidance and accessibility polish.
 
 ### Tests
 
-`npm test` → **115 / 115 passing** (~8.3 s).
+`npm test` → **115 / 115 passing** (~7.3 s).
 
 New coverage:
 
@@ -948,3 +948,12 @@ files were modified. `npm test` green.
 - Release builder includes the executable and reports it as the entrypoint.
 - Verified manually: launch on port 8792, terminate launcher, port 8792 closes
   while an unrelated server on 8791 remains running.
+
+### Post-phase texture workflow (0.12.0)
+
+- Added DDS preview when a texture is selected in **Recursos**.
+- Added DDS export and import from the texture detail.
+- Imported textures are registered in project `textures[]` and shown as project rows.
+- Added project texture raw endpoint and project selector in the Resources view.
+- Documented in `CHANGE.md`.
+- Tests: 115/115 (engine project texture read + existing API/UI paths).

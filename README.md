@@ -6,7 +6,8 @@ WARBand Outfit Studio lee una instalación real del juego, resuelve la cadena co
 `Item → Mesh → Material → Texture → .dds` y ofrece herramientas para inspeccionar,
 validar, editar y construir contenido sin modificar nunca la instalación original.
 
-> **Primera versión pública — `0.11.0`**  
+> **Primera versión pública — `0.12.0`**
+>
 > Roadmap 0–10 completado: visor 3D, edición de mallas, materiales, outfits, ítems,
 > builds, recuperación y empaquetado portátil.
 
@@ -91,7 +92,7 @@ No hace falta ejecutar `npm install`: el proyecto tiene **cero dependencias npm 
 npm run release
 ```
 
-Genera `dist/warband-outfit-studio-0.11.0/` con:
+Genera `dist/warband-outfit-studio-0.12.0/` con:
 
 - ejecutable y launcher `.cmd`;
 - runtime Node embebido (por defecto);
@@ -193,6 +194,7 @@ Las pruebas de integración leen la instalación real y **nunca escriben en ella
 
 - [Plan de proyecto](PROJECT_PLAN.md)
 - [Registro de progreso](PROGRESS.md)
+- [Change log](CHANGE.md)
 - [Arquitectura](docs/architecture/ARCHITECTURE.md)
 - [Modelo de datos](docs/architecture/DATA-MODEL.md)
 - [Visor 3D](docs/architecture/VIEWPORT.md)

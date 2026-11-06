@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.11.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.12.0" />
 </head>
 <body>
   <div class="app">
@@ -119,6 +119,11 @@
             <button class="chip" data-type="material">Materiales</button>
             <button class="chip" data-type="texture">Texturas</button>
             <button class="chip" data-type="shader">Shaders</button>
+          </div>
+          <div id="resource-project-row" class="resource-project-row" hidden>
+            <label for="resource-project">Proyecto</label>
+            <select id="resource-project"></select>
+            <button id="resource-project-new" class="ghost small" type="button">+ Nuevo</button>
           </div>
         </div>
         <div id="resource-list" class="item-list"></div>
@@ -446,6 +451,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.11.0"></script>
+  <script type="module" src="/js/app.js?v=0.12.0"></script>
 </body>
 </html>

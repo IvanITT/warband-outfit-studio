@@ -1876,6 +1876,13 @@ export class WarbandEngine {
     };
   }
 
+  /** @param {string} projectId @param {string} name */
+  async getProjectTextureFile(projectId, name) {
+    const texture = await this.projects.getTexture(projectId, name);
+    const buffer = await this.workspaces.readFile(texture.workspaceId, texture.path);
+    return { buffer, texture };
+  }
+
   /** @param {string} projectId @param {any} texture */
   async saveProjectTexture(projectId, texture) {
     return this.projects.saveTexture(projectId, texture);
@@ -2320,7 +2327,7 @@ export class WarbandEngine {
     ];
     return {
       ok: checks.every((check) => check.ok),
-      version: '0.11.0',
+      version: '0.12.0',
       node: process.version,
       platform: process.platform,
       arch: process.arch,

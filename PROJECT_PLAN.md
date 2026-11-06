@@ -147,6 +147,7 @@ Detailed documents:
 - [Outfits](docs/architecture/OUTFITS.md)
 - [Items](docs/architecture/ITEMS.md)
 - [Builder](docs/architecture/BUILDER.md)
+- [Change log](CHANGE.md)
 - [Format map](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
 
@@ -924,7 +925,7 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **115 / 115 passing** (~8.3 s), zero dependencies.
+**Command:** `npm test` - **115 / 115 passing** (~7.3 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -964,6 +965,14 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Post-1.0: texture preview/import/export
+
+- DDS preview when selecting a texture.
+- Export selected texture as `.dds`.
+- Import `.dds` into a project workspace and register it in `project.textures[]`.
+- Project texture list/preview and raw endpoint.
+- Documented in `CHANGE.md`.
 
 ### 2026-11-06 - Phase 10 completed
 

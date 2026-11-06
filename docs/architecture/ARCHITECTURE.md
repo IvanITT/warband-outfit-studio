@@ -234,6 +234,7 @@ The cache is derived data and safe to delete.
 | POST | `/api/projects/:id/materials/:name/export` | merge material + copy textures |
 | POST | `/api/workspaces/:id/textures` | import a base64 DDS |
 | GET/POST | `/api/projects/:id/textures` | list/register project textures |
+| GET | `/api/projects/:id/textures/:name/raw` | raw DDS bytes for project textures |
 | GET | `/api/textures/:name/raw` | raw DDS bytes (binary response) |
 | GET | `/api/workspaces` | workspace list |
 | POST | `/api/workspaces` | create `{ label, module }` |

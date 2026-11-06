@@ -184,6 +184,20 @@ export const api = {
 
   /* project textures */
   projectTextures: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/textures`),
+  projectTextureBuffer: async (projectId, name) => {
+    const response = await fetch(
+      `/api/projects/${encodeURIComponent(projectId)}/textures/${encodeURIComponent(name)}/raw`,
+    );
+    if (!response.ok) {
+      let payload = null;
+      try { payload = await response.json(); } catch { /* binary error */ }
+      throw new ApiError(payload?.error?.message ?? `Textura de proyecto no disponible (${response.status})`, {
+        code: payload?.error?.code ?? 'TEXTURE_ERROR',
+        status: response.status,
+      });
+    }
+    return response.arrayBuffer();
+  },
   saveProjectTexture: (projectId, texture) => request(
     `/api/projects/${encodeURIComponent(projectId)}/textures`,
     { method: 'POST', body: { texture } },

@@ -19,7 +19,7 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.11.0',
+        version: '0.12.0',
         phase: 10,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
@@ -497,6 +497,21 @@ export function createApi(engine) {
         }
         return { ok: true, texture: await engine.saveProjectTexture(projectId, body.texture) };
       }
+    }
+
+    const projectTextureRaw = urlPath.match(/^\/api\/projects\/([^/]+)\/textures\/([^/]+)\/raw$/);
+    if (method === 'GET' && projectTextureRaw) {
+      const projectId = decodeURIComponent(projectTextureRaw[1]);
+      const name = decodeURIComponent(projectTextureRaw[2]);
+      const result = await engine.getProjectTextureFile(projectId, name);
+      return {
+        __binary: true,
+        body: result.buffer,
+        contentType: 'application/octet-stream',
+        headers: {
+          'Content-Disposition': `inline; filename="${result.texture.name.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+        },
+      };
     }
 
     const projectTexture = urlPath.match(/^\/api\/projects\/([^/]+)\/textures\/([^/]+)$/);

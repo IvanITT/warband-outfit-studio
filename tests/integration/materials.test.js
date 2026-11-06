@@ -95,6 +95,8 @@ test('imports and registers a DDS texture in a project', { skip: hasGame ? false
   const textures = await engine.listProjectTextures(project.id);
   assert.equal(textures.length, 1);
   assert.equal(textures[0].name, 'mail_shirt_a.dds');
+  const projectRaw = await engine.getProjectTextureFile(project.id, 'mail_shirt_a.dds');
+  assert.equal(projectRaw.buffer.subarray(0, 4).toString('latin1'), 'DDS ');
 
   const invalid = Buffer.from('not a dds');
   await assert.rejects(() => engine.importTexture(workspace.id, 'bad.dds', invalid), (error) => {

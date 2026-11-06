@@ -34,6 +34,22 @@ open. Closing that window stops the server and the Node process it started.
 | **Sistema** | Health checks, environment, logs and recovery guidance |
 | **Copias** | Restore project/workspace backups and prune old revisions |
 
+## 3.1 Texture workflow
+
+In **Recursos → Texturas**, selecting a texture shows a DDS preview.
+
+- **Exportar DDS** downloads the raw texture for external editing.
+- Choose a project, select a `.dds`, give it a destination name and click
+  **Importar y guardar**.
+- The imported texture is stored in `workspace/textures/Textures/`, registered
+  in `project.textures[]`, and appears as a project row in the resource list.
+- Project textures can be selected for preview/export just like game textures
+  and are offered by the material editor for diffuse/bump/spec assignment.
+
+This makes it possible to paint/edit a texture outside the studio, import it
+under a new name, assign it to a material and use that material on new items,
+outfits or characters.
+
 ## 4. Editing workflow
 
 1. Select an item in **Prendas**.
