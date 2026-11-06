@@ -37,7 +37,7 @@ test('Native summary matches the REA analysis counts', { skip: hasGame ? false :
 
 test('resolves a real armor chain across BRF files', { skip: hasGame ? false : 'Warband not installed' }, async () => {
   const engine = await createEngine({ projectRoot: PROJECT_ROOT, installationPath: GAME, cache: false });
-  const { item, chain } = await engine.getItemDetail('Native', 'itm_mail_shirt');
+  const { item, chain, flags, capabilities } = await engine.getItemDetail('Native', 'itm_mail_shirt');
 
   assert.equal(item.slot, 'body');
   assert.equal(chain.meshes.length, 1);
@@ -55,6 +55,10 @@ test('resolves a real armor chain across BRF files', { skip: hasGame ? false : '
     assert.equal(texture.dds.width, 1024);
   }
   assert.equal(chain.summary.errors, 0);
+  assert.equal(flags.type.name, 'itp_type_body_armor');
+  assert.equal(flags.unknownHex, null);
+  assert.ok(flags.flags.some((flag) => flag.name === 'itp_merchandise'));
+  assert.equal(capabilities.value, '0');
 });
 
 test('resolves a composed mesh (pieces without a base mesh)', { skip: hasGame ? false : 'Warband not installed' }, async () => {

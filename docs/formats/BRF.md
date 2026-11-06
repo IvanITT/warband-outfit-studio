@@ -175,8 +175,66 @@ The initial `6` is the string length prefix, not a section count.
 - `ani_attacks.brf`: 22 animations
 - full `CommonRes` scan: 219 files, 0 parse errors, 7 243 meshes / 633 materials / 734 textures / 139 shaders
 
-## 6. Known gaps
+## 6. Writing (Phase 1)
 
-- **Writing** BRF files is not implemented (Phase 0 is read-only). The layout above is sufficient to implement a writer; OpenBRF's `Save` order is documented.
-- Body/collision meshes are parsed only enough to skip them; their geometry is not exposed.
-- Tangents and per-vertex colours are skipped; they will be needed for a 3D viewport.
+`serializeBrf(doc, sourceBuffer)` rebuilds the token stream:
+
+- For every object that is **not dirty**, the writer copies its original byte
+  range (`rawStart..rawEnd`) from the source buffer. The output is therefore
+  **byte-identical**, including animations and collision bodies that are not
+  modelled in detail.
+- For a **dirty** object, the writer encodes it from the model. Phase 1
+  supports meshes, materials, textures, shaders and skeletons.
+- Writing dirty animations or bodies throws a clear error.
+
+```js
+import { parseBrf, serializeBrf, updateMesh } from './engine/resources/brf.js';
+
+const source = await readFile(brfPath);
+const doc = parseBrf(source, { file: brfPath });
+
+updateMesh(doc, 0, { material: 'new_material' }, source); // marks mesh dirty
+const out = serializeBrf(doc, source);
+```
+
+**Verified corpus**: all **219** `CommonRes` BRFs round-trip byte-for-byte
+(`tests/integration/brfWriter.test.js`). A modified mesh reparses correctly and
+the result is itself round-trip stable.
+
+Safety: the writer only produces a Buffer. Persisting it goes through
+`WorkspaceStore`, which writes inside `workspace/`, backs up replaced files and
+records SHA-256 hashes.
+
+## 7. Geometry (Phase 1)
+
+`readMeshGeometry(source, mesh, { limits })` lazily decodes one mesh:
+
+| Field | Type | Notes |
+|---|---|---|
+| `positions` | `Float32Array` | flat `x,y,z`, bind pose |
+| `rigging` | `{boneIndex, pairs:[{vertexIndex,weight}]}[]` | per bone |
+| `frames` | `{time, positions, normals}[]` | vertex animation |
+| `vertices.index/color/normal/uv` | typed arrays | layouts 0/1/2 |
+| `vertices.tangent/textureIndex/uv2` | typed arrays or `null` | layout-dependent |
+| `faces` | `Uint32Array` | flat triplets |
+| `bbox` | `{min,max}` or `null` | computed from positions |
+| `layout` | `0/1/2` | matches `mesh.vertexVersion` |
+
+Limits (defaults): 2 M positions, 2 M vertices, 4 M faces, 8 M rigging pairs,
+1 024 frames. Every count is bounded before allocation, and the parser verifies
+that the geometry ends exactly at the recorded `rawEnd`.
+
+**UVs are raw** (not V-flipped) to keep round-trips exact. A renderer must flip
+V to match OpenBRF/Warband display.
+
+Geometry is **not cached**: `engine.getMeshGeometry(moduleId, meshName)` reads
+the BRF file on demand. Indexing keeps metadata only.
+
+## 8. Known gaps
+
+- Dirty **animations** and **collision bodies** cannot be written yet (they are
+  preserved verbatim when untouched). Phase 2+.
+- Adding or removing objects (changing section counts) is not exposed by the
+  mutation API yet; Phase 8 (builder) will need it.
+- Geometry is re-read from disk on every call; an LRU cache is deferred until a
+  consumer (Phase 3 viewport) demonstrates the need.

@@ -21,7 +21,7 @@ import path from 'node:path';
 import { listFiles, readJson, statSafe, writeJsonAtomic } from '../util/fsx.js';
 import { analyzeMeshName, parseBrfFile } from './brf.js';
 
-export const PARSER_VERSION = 2;
+export const PARSER_VERSION = 3;
 const CACHE_SCHEMA = 1;
 
 /**
@@ -35,6 +35,8 @@ const CACHE_SCHEMA = 1;
  * @property {number} vertexCount
  * @property {number} faceCount
  * @property {number} frameCount
+ * @property {number} rawStart
+ * @property {number} rawEnd
  * @property {boolean} rigged
  * @property {import('./brf.js').MeshNameInfo} nameInfo
  */
@@ -83,10 +85,30 @@ function summarizeDocument(doc, file) {
       vertexCount: mesh.vertexCount,
       faceCount: mesh.faceCount,
       frameCount: mesh.frameCount,
+      rawStart: mesh.rawStart,
+      rawEnd: mesh.rawEnd,
       rigged: mesh.rigged,
     })),
-    materials: doc.materials.map((material) => ({ ...material })),
-    textures: doc.textures.map((texture) => ({ ...texture })),
+    materials: doc.materials.map((material) => ({
+      name: material.name,
+      flags: material.flags,
+      shader: material.shader,
+      diffuseA: material.diffuseA,
+      diffuseB: material.diffuseB,
+      bump: material.bump,
+      enviro: material.enviro,
+      spec: material.spec,
+      specPresent: material.specPresent,
+      specular: material.specular,
+      r: material.r,
+      g: material.g,
+      b: material.b,
+    })),
+    textures: doc.textures.map((texture) => ({
+      name: texture.name,
+      flags: texture.flags,
+      frames: texture.frames,
+    })),
     shaders: doc.shaders.map((shader) => ({ name: shader.name })),
     skeletonCount: doc.skeletons.length,
     animationCount: doc.animations.length,
@@ -236,6 +258,8 @@ export async function createBrfIndex(options) {
         vertexCount: mesh.vertexCount,
         faceCount: mesh.faceCount,
         frameCount: mesh.frameCount,
+        rawStart: mesh.rawStart,
+        rawEnd: mesh.rawEnd,
         rigged: mesh.rigged,
         nameInfo: analyzeMeshName(mesh.name),
       };

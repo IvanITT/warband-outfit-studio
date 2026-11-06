@@ -210,3 +210,70 @@ Phase 0 committed as a stable milestone. No game files were modified. `npm test`
 - Two small corrections after the first report: material-level validation issues are now attributed correctly, and local configuration was split into git-ignored `config/app.json` + committed `config/app.example.json`.
 - Roadmap reconciliation recorded in `PROJECT_PLAN.md` §9 / ADR-012: Phase 0 already delivered the parsers and installation/module detection, so Phase 1 targets the remaining Resource Engine work instead of rebuilding them. **Pending user approval.**
 - Milestone tag: `phase-0-foundation`.
+
+---
+
+## Phase 1 — Warband Resource Engine
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Complete the resource layer so the engine can read geometry, write BRF files safely, decode item flags, and mutate resources **only** inside a workspace.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| BRF writer | `serializeBrf(doc, source)`: untouched objects copied byte-for-byte; dirty meshes/materials/textures/shaders/skeletons re-encoded |
+| Geometry | `readMeshGeometry`: positions, rigging, frames, typed vertex arrays (layouts 0/1/2), faces, bbox; limits + end checks |
+| Mutation | `updateMesh`, `replaceMeshGeometry`, `loadMeshGeometry`; vertex-layout flag changes rejected |
+| Item flags | `tools/generate-item-flags.js` → committed table with source SHA-256; `decodeItemFlags` / `decodeCapabilities` (enums before bits) |
+| Workspaces | `WorkspaceStore`: guarded paths, atomic writes, overwrite backups + SHA-256; `engine.exportBrf` |
+| Engine API | `getMeshGeometry`, `createWorkspace`, `listWorkspaces`, `exportBrf`; `getItemDetail` returns decoded flags |
+| UI | Flags/capabilities panel with type, enum fields, aliases and unknown bits |
+| Tools | `export-brf`, `generate-item-flags` |
+
+### Tests
+
+`npm test` → **61 / 61 passing** (~4.0 s).
+
+New suites:
+
+- `unit/brfWriter` (7): synthetic v1/v0 round-trip, `spec` presence, geometry, dirty material, layout-flag guard.
+- `unit/itemFlags` (6): provenance, real items, unknown bits, enum-vs-bit, zero capabilities.
+- `unit/workspace` (4): create/list/write, backup + hash, traversal/absolute rejection.
+- `integration/brfWriter` (4): **219/219** `CommonRes` byte-identical corpus, real mesh edit, real geometry counts, workspace export with source hash check.
+
+### Verified against real data
+
+- Corpus: every `CommonRes` BRF parses and serializes byte-identically (219/219).
+- `mail_shirt_a` geometry: counts match the index, 11 rigging bones, valid face indices, finite UVs.
+- Export: source BRF SHA-256 unchanged; output under `workspace/`; previous revisions backed up.
+- `itm_mail_shirt` flags decode to `itp_type_body_armor` + `itp_merchandise` + `itp_covers_legs`, no unknown bits.
+
+### Findings / corrections
+
+1. **Enums are not bits.** Attachment (`0xF00`), carry (`0x7F0000000`) and shoot (`0xFF000`) are masked fields. A bit-only decode would mislabel `0x30000000` as two carry flags. Decoder extracts fields first (F-19).
+2. **The header carry mask spans bits 28–34**, not 28–31; values include `0x100000000`…`0x220000000`. Derived from `header_items.py` constants and verified against decode.
+3. **Material `spec` is optional** (`LoadStringMaybe`): absent means the next four bytes are the specular float, not a placeholder. The writer emits nothing when absent.
+4. **BRF byte ranges are the key to safe writing**: preserving untouched objects avoids re-encoding animations/bodies that Phase 1 does not model.
+
+### Known limitations
+
+- Dirty animations and collision bodies cannot be written (preserved verbatim; writer throws if marked dirty).
+- Section counts cannot change yet (no add/remove objects).
+- Geometry is re-read per request; no cache.
+- Module `Resource` packs are not in the round-trip corpus (CommonRes only).
+- Item capability bit 63 in `itm_no_item` is not in `header_items.py`; reported as unknown.
+
+### Documentation updated
+
+- `PROJECT_PLAN.md` (Phase 1 complete, Phase 2 proposed, ADR-013…017, findings, tests).
+- `docs/formats/BRF.md` (writer + geometry), new `docs/formats/ITEM-FLAGS.md`.
+- `docs/architecture/ARCHITECTURE.md`, `docs/architecture/DATA-MODEL.md`, `docs/development/DECISIONS.md`, `docs/development/SETUP.md`, `README.md`.
+
+### Milestone
+
+Tag `phase-1-resource-engine`. No game files were modified. `npm test` green.

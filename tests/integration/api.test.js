@@ -38,6 +38,8 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   const detail = await detailResponse.json();
   assert.equal(detail.item.id, 'itm_mail_shirt');
   assert.equal(detail.chain.meshes[0].material.name, 'mail_shirt_a');
+  assert.equal(detail.flags.type.name, 'itp_type_body_armor');
+  assert.equal(detail.capabilities.value, '0');
 
   const validationResponse = await fetch(`${base}/api/validate`, {
     method: 'POST',

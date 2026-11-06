@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 0 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 1**
+> Current phase: **Phase 1 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 2**
 
 ---
 
@@ -124,10 +124,13 @@ Implemented engine modules:
 | `engine/modules/moduleIni.js` | `module.ini` parser | IMPLEMENTED |
 | `engine/modules/moduleRegistry.js` | module discovery, ids, capabilities | IMPLEMENTED |
 | `engine/items/itemKinds.js` | `item_kinds1.txt` parse + byte-perfect serialize | IMPLEMENTED |
-| `engine/resources/brf.js` | BRF token-stream parser | IMPLEMENTED |
+| `engine/resources/brf.js` | BRF token-stream parser + writer (raw-range copy, dirty objects) | IMPLEMENTED |
+| `engine/resources/geometry.js` | lazy mesh geometry with allocation limits | IMPLEMENTED |
+| `engine/resources/workspace.js` | workspace-only writes, backups, SHA-256 | IMPLEMENTED |
 | `engine/resources/brfIndex.js` | cross-file index + persistent cache | IMPLEMENTED |
 | `engine/resources/textureResolver.js` | DDS discovery | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header | IMPLEMENTED |
+| `engine/items/itemFlags.js` | generated `itp_*` / `itcf_*` decoder | IMPLEMENTED |
 | `engine/validation/*` | 15 validation rules | IMPLEMENTED |
 | `engine/projects/projectStore.js` | JSON projects + backups | IMPLEMENTED |
 | `engine/exporters/*` | build/export pipeline | PLANNED (Phase 8) |
@@ -222,16 +225,19 @@ Phases are sequential and require explicit approval. “Status” reflects reali
 - Installation + module detection, item and BRF parsers, cross-file index, texture/DDS resolution, 15 validation rules, project store with backups, read-only API and UI.
 - 40 automated tests; verified against the real installation.
 
-### Phase 1 — Warband Resource Engine
+### Phase 1 — Warband Resource Engine — **COMPLETE (2026-11-06)**
 
-Complete the resource layer so it can **read, represent, mutate and write** the relevant formats safely.
+Completed:
 
-- Geometry extraction API (positions, normals, UVs, faces, rigging) with memory limits.
-- BRF writer: round-trip and selective object replacement.
-- Item flag/symbol table generated from `header_items.py` (offline, committed).
-- Resource mutation API that only writes to `workspace/`.
-- Serialization tests over a representative BRF corpus.
-- **Exit:** round-trip corpus green, geometry counts match, flags decoded, no writes to the game.
+- BRF writer with **byte-identical round-trip on all 219 `CommonRes` files**; dirty meshes/materials/textures/shaders/skeletons re-encoded, untouched objects copied verbatim.
+- Lazy mesh geometry (positions, rigging, frames, UVs, normals, faces, bbox) with allocation limits.
+- Generated item-flag table from `header_items.py` (offline, committed with SHA-256) and enum-aware decoder.
+- Workspace store as the only write target: path guards, atomic writes, backups with SHA-256.
+- `engine.getMeshGeometry`, `engine.exportBrf`, `createWorkspace`, `listWorkspaces`.
+- UI shows decoded flags/capabilities.
+- 61 automated tests.
+
+**Exit met:** corpus green (219/219), geometry counts match, flags decoded, installation untouched (hash-checked).
 
 ### Phase 2 — Game & Module Manager
 
@@ -296,26 +302,24 @@ Turn the existing detection/index into a complete manager.
 
 ## 9. Current Phase
 
-**Phase 0 is COMPLETE.** All Phase 0 deliverables are implemented, tested and documented.
+**Phase 1 is COMPLETE.** All Phase 1 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 2.
 
-### Roadmap reconciliation (important)
+### Roadmap reconciliation (accepted)
 
-The master roadmap assumes Phase 0 produces only foundations, with parsers in Phase 1 and installation/module management in Phase 2. The Phase 0 work, driven by the previous brief, already delivered:
+The master roadmap assumed Phase 0 would produce only foundations, with parsers in Phase 1 and installation/module management in Phase 2. The Phase 0 work already delivered:
 
 - BRF and item parsers,
 - installation and module detection,
 - cross-file indexing and DDS resolution,
 - validation and project storage.
 
-This is **not** a silent deviation. It is recorded here as an architectural fact:
+The user approved Phase 1 with this reconciliation (ADR-012). Consequences, retained:
 
-- **Phase 1** is therefore scoped to the **unfinished** Resource Engine work: geometry, BRF writing, symbolic item flags, mutation APIs and corpus tests.
-- **Phase 2** is scoped to the **unfinished** manager work: multi-installation profiles, workspace lifecycle, backup catalogue/restore and management UI.
+- **Phase 1** targeted the **unfinished** Resource Engine work: geometry, BRF writing, symbolic item flags, mutation APIs and corpus tests. **Done.**
+- **Phase 2** targets the **unfinished** manager work: multi-installation profiles, workspace lifecycle, backup catalogue/restore and management UI.
 - No earlier deliverable is re-implemented.
-
-Approval is requested for this reconciliation together with Phase 1.
 
 ---
 
@@ -363,38 +367,60 @@ Approval is requested for this reconciliation together with Phase 1.
 
 - 40/40 tests (4.4 s), real-game integration assertions, 0 BRF parse errors, no writes to the installation.
 
+### Phase 1 (2026-11-06)
+
+**Resource engine**
+
+- **BRF writer** (`serializeBrf`): untouched objects copied from recorded byte ranges; dirty meshes/materials/textures/shaders/skeletons re-encoded. Animations/bodies are preserved verbatim and rejected if marked dirty.
+- **Lazy geometry** (`readMeshGeometry`): positions, rigging, animation frames, typed vertex arrays for layouts 0/1/2, faces, bbox; allocation limits and end-of-range verification.
+- **Mutation helpers**: `loadMeshGeometry`, `updateMesh` (material/flags), `replaceMeshGeometry`; vertex-layout flag changes rejected.
+- **Workspace store** (`WorkspaceStore`): guarded relative paths, atomic writes, per-file SHA-256, backups on overwrite; only write target in the project.
+- **Engine API**: `getMeshGeometry`, `createWorkspace`, `listWorkspaces`, `exportBrf` (installation read-only; patches applied in memory; output under `workspace/`).
+- **Item flags**: generator + committed table (`sourceSha256`, counts) and enum-aware decoder; `getItemDetail` returns `flags`/`capabilities`; UI renders chips and unknown bits.
+
+**Tools**
+
+- `tools/generate-item-flags.js`, `tools/export-brf.js`.
+
+**Verification**
+
+- 61/61 tests in ~4.0 s.
+- Corpus: **219/219 `CommonRes` BRFs byte-identical** after parse → serialize; modified mesh reparses and is round-trip stable.
+- Real geometry: `mail_shirt_a` vertex/face counts match the index, rigging present, face indices valid, UVs finite.
+- Export: source BRF SHA-256 unchanged; output written under `workspace/`.
+
 ---
 
 ## 11. Pending Work
 
-### Phase 1 (proposed, not authorized)
+### Phase 2 (proposed, not authorized)
 
-1. **Geometry API** — read positions/normals/UVs/faces/rigging on demand; counts already parsed; enforce memory caps and lazy loading.
-2. **BRF writer** — serialize the document model; byte-identical round-trip for a corpus; selective object replacement.
-3. **Item flags** — generate an offline symbol table from `header_items.py`; decode `itp_*`, `itc_*`, `itcf_*`; display in the UI (read-only).
-4. **Mutation APIs** — edit in memory, write only to `workspace/`; no game writes.
-5. **Corpus tests** — representative BRFs (armor, materials, textures, shaders, animations, composed meshes) + failure cases.
-6. **Docs** — BRF writer spec, geometry model, flags reference.
+1. **Installation profiles** — multiple installs, user-selected paths, per-profile validation, persisted profile list.
+2. **Workspace lifecycle** — create from a module, list, inspect, delete with confirmation; workspace UI.
+3. **Module manager UI** — module capabilities, versions, resource load lists, unknown keys surfaced.
+4. **Asset index UI** — browse meshes/materials/textures per module, show missing references, search.
+5. **Backup catalogue & restore** — list backups (project + workspace), restore with confirmation, hash verification.
+6. **Docs** — manager architecture, workspace lifecycle, backup model.
 
-### Backlog after Phase 1
+### Backlog after Phase 2
 
-- Phase 2: profiles, workspace lifecycle, backup catalogue/restore, manager UI.
-- Phase 3+: viewport, mesh editor, materials, outfit editor, item editor, exporter, hardening, packaging.
+- Phase 3: vendored Three.js viewport, mesh rendering, materials, selection.
+- Phase 4+: mesh editor, materials, outfit editor, item editor, exporter, hardening, packaging.
 
 ---
 
-## 12. Known Issues
+## 12. Known Issues (after Phase 1)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
-| 1 | Item `flags`/`capabilities` are raw numbers; no symbolic decoding | Medium | Planned Phase 1 |
-| 2 | No BRF writer; projects cannot export meshes | High | Planned Phase 1 |
-| 3 | Geometry buffers are skipped; only counts are available | Medium | Planned Phase 1 |
-| 4 | UI is read-only; projects can be created via API but not edited | High | Planned Phase 1–2 |
-| 5 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Documented; verify in Phase 2 |
+| 1 | UI is read-only; projects can be created via API but not edited | High | Planned Phase 2+ |
+| 2 | Dirty animations and collision bodies cannot be written | Medium | Preserved verbatim; writer throws if marked dirty |
+| 3 | Adding/removing BRF objects (section count changes) is not exposed | Medium | Phase 8 (builder) |
+| 4 | Geometry is re-read from disk on every call (no cache) | Low | Revisit in Phase 3 with real rendering |
+| 5 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Verify in Phase 2 |
 | 6 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
-| 7 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine 1.170 evidence |
-| 8 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter in Phase 1 |
+| 7 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
+| 8 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter in Phase 2 |
 | 9 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
 
 ---
@@ -405,11 +431,13 @@ Approval is requested for this reconciliation together with Phase 1.
 |---|---|---|
 | `engine/validation/validate.js` | Mixed responsibilities (resolution + rules) in one file | Split when rules exceed ~20 |
 | `brfIndex` cache | Whole-module JSON cache; 7.8 MB for VC | Per-pack cache only if it becomes a problem |
-| Encoding | CP1252 fallback is silent; no per-file report in the UI | Surface in Phase 1 diagnostics |
+| Encoding | CP1252 fallback is silent; no per-file report in the UI | Surface in Phase 2 diagnostics |
 | `module.ini` | Hand-curated known keys | Generate from engine evidence / module system |
 | Frontend | No component framework; DOM helpers are ad hoc | Re-evaluate at Phase 3 (viewport) |
-| Item model | `capabilities` kept as string; no BigInt helpers | Add helpers in Phase 1 |
-| Tests | No golden-file corpus for BRF round-trip yet | Phase 1 |
+| BRF writer | Encodes dirty meshes via `Buffer.concat` of many small chunks | Optimise only if large-mesh writes show up in profiles |
+| Geometry | No cache; one file read per mesh request | LRU in Phase 3 if the viewport needs it |
+| Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
+| Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 2 |
 | Docs | `PROGRESS.md` and `PROJECT_PLAN.md` overlap | PROJECT_PLAN canonical; PROGRESS historical |
 | Packaging | Requires Node installed | Phase 10 (Node SEA) |
 
@@ -430,7 +458,12 @@ Approval is requested for this reconciliation together with Phase 1.
 | ADR-009 | Engine version from `rgl_log.txt` | Accepted |
 | ADR-010 | Validation codes are a public contract | Accepted |
 | ADR-011 | Local config is git-ignored; example committed | Accepted (2026-11-06) |
-| ADR-012 | Phase 0 overlap with master’s Phase 1–2 (parsers/detection) is retained, not rebuilt | **Pending approval** |
+| ADR-012 | Phase 0 overlap with master’s Phase 1–2 (parsers/detection) is retained, not rebuilt | **Accepted** (Phase 1 approved) |
+| ADR-013 | BRF writer copies untouched ranges; only dirty objects re-encoded | Accepted (Phase 1) |
+| ADR-014 | Lazy geometry, no cache until a renderer needs it | Accepted (Phase 1) |
+| ADR-015 | Workspaces are the only write target (guards, atomic, backup, hash) | Accepted (Phase 1) |
+| ADR-016 | Commit generated flag table; no runtime Python | Accepted (Phase 1) |
+| ADR-017 | Enums decoded as fields, not independent bits | Accepted (Phase 1) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -457,38 +490,57 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-13 | Item record order below the hardwired block must not change | `module_items.py` comment | **VERIFIED** | future editor invariant |
 | F-14 | `.sco` scene layout | not investigated | **UNKNOWN** | out of scope |
 | F-15 | Savegame `.sav` layout | not investigated | **UNKNOWN** | out of scope |
+| F-16 | BRF round-trip is byte-exact when untouched objects are copied | 219/219 `CommonRes` files | **VERIFIED** | `serializeBrf` |
+| F-17 | BRF geometry counts and byte ranges agree with the index | real meshes (e.g. `mail_shirt_a` 782 verts / 1240 faces) | **VERIFIED** | `readMeshGeometry` |
+| F-18 | Item flags: type is `flags & 0x1F`; attachment is `0xF00`; carry is `0x7F0000000`; shoot is `0xFF000` | `header_items.py` + generated table | **VERIFIED** | `itemFlags.js` |
+| F-19 | Carry/shoot/attachment are enums, not independent bits | `itcf_carry_dagger_front_left = 0x30000000` | **VERIFIED** | enum-first decoder |
+| F-20 | Some item capability bits are not in `header_items.py` | `itm_no_item` bit 63 | **UNKNOWN** | reported as `unknownHex` |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` — **40 / 40 passing** (~4.4 s), zero dependencies.
+**Command:** `npm test` — **61 / 61 passing** (~4.0 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
 | `unit/binaryReader` | 6 | bounds, strings, maybe-string presence, point order, trailing bytes |
 | `unit/itemKinds` | 5 | parsing, stats, byte-perfect round-trip, re-render, classification, errors |
+| `unit/itemFlags` | 6 | table provenance, real items, unknown bits, enum-vs-bit, zero capabilities |
+| `unit/brfWriter` | 7 | synthetic round-trip (v1/v0), spec presence, geometry, dirty material, flag guard |
+| `unit/workspace` | 4 | create/list/write, backup + hash, traversal/absolute rejection, missing workspace |
 | `unit/moduleIni` | 2 | keys, comments, resources, versions, capabilities, duplicates |
 | `unit/dds` | 3 | DDS header, bad magic, mesh naming |
 | `unit/projectStore` | 4 | ids, create/load/list, backup-on-save, traversal rejection |
 | `unit/validation` | 6 | missing mesh/material/texture/file, invalid DDS, shader warning |
 | `integration/brf` | 6 | real BRFs, truncation, naming |
-| `integration/pipeline` | 7 | installation, Native counts, chain, composed mesh, batch validation, all modules |
+| `integration/brfWriter` | 4 | 219-file byte-identical corpus, real mesh edit, real geometry, workspace export |
+| `integration/pipeline` | 7 | installation, Native counts, chain + flags, composed mesh, batch validation, all modules |
 | `integration/api` | 2 | HTTP API, CSP, static, projects + backup, structured 404 |
 
-Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734 textures / 139 shaders; 0 parse errors; byte-identical `item_kinds1.txt` round-trip in all three modules.
+Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734 textures / 139 shaders; 0 parse errors; byte-identical `item_kinds1.txt` round-trip in all three modules; **219/219 BRF byte-identical round-trip**.
 
-**Not yet tested:** BRF writing (not implemented), geometry payloads, `.sco`/`.sav`, concurrent index builds, very large mods (>1 GB) under memory pressure.
+**Not yet tested:** dirty animation/body writing (unsupported), module `Resource` corpus round-trip, `.sco`/`.sav`, concurrent index builds, very large mods (>1 GB) under memory pressure, viewport (not implemented).
 
 ---
 
 ## 17. Change Log
 
+### 2026-11-06 — Phase 1 completed
+
+- **BRF writer**: raw-range copying + dirty re-encode; 219/219 `CommonRes` files byte-identical.
+- **Geometry**: lazy typed-array reader with limits; engine `getMeshGeometry`.
+- **Item flags**: generated table (SHA-256 provenance) + enum-aware decoder; UI chips.
+- **Workspaces**: guarded, atomic, backed-up, hashed; `exportBrf` only writes there.
+- **Tests**: 61 passing (new writer/flags/workspace/corpus/geometry/export suites).
+- Docs: BRF writer + geometry, ITEM-FLAGS, data model, architecture, ADR-013…017.
+- Milestone tag: `phase-1-resource-engine`.
+
 ### 2026-11-06 — Master plan adopted
 
 - Added `PROJECT_PLAN.md` as the canonical specification, roadmap, decision log and tracker.
 - Recorded the 10-phase roadmap and the approval protocol.
-- Documented the Phase 0 / Phase 1–2 overlap (ADR-012, pending approval).
+- Documented the Phase 0 / Phase 1–2 overlap (ADR-012, since approved).
 
 ### 2026-11-06 — Phase 0 corrections and hardening
 
@@ -511,27 +563,27 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 1 — Warband Resource Engine** (proposed; requires explicit approval).
+**Phase 2 — Game & Module Manager** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Geometry API | lazily read positions/normals/UVs/faces/rigging | counts/positions match source; memory cap enforced |
-| BRF writer | serialize the document model | byte-identical round-trip on a corpus of ≥20 real BRFs |
-| Item flags | offline symbol table from `header_items.py` | known vanilla items decode to expected symbols |
-| Mutation APIs | in-memory edits + workspace-only writes | game installation untouched; tests assert workspace paths |
-| Corpus tests | fixtures + round-trip + failure cases | green in CI/local |
-| Docs | writer spec, geometry model, flags reference | reviewed and linked from this plan |
+| Installation profiles | multiple installs, user paths, validation, persisted list | two profiles resolve and validate independently |
+| Workspace lifecycle | create from module, list, inspect, delete with confirmation | workspace can be created and removed safely; game untouched |
+| Module manager UI | capabilities, versions, resource lists, unknown keys | module switching surfaces all metadata |
+| Asset index UI | browse meshes/materials/textures, missing references, search | user can navigate a module's resource graph |
+| Backup catalogue | list/restore project + workspace backups, verify hashes | restore reproduces the original bytes and hash |
+| Docs | manager architecture, workspace lifecycle, backup model | linked and tested |
 
-### Explicitly out of Phase 1
+### Explicitly out of Phase 2
 
-3D viewport, mesh editor, materials UI, item editor UI, module deployment, backups UI.
+3D viewport, mesh/material editors, item editor, deployment into a module.
 
 ### Decisions requested with this approval
 
-1. **Roadmap reconciliation (ADR-012):** accept that Phase 0 already delivered the parsers/detection, and Phase 1 targets the remaining resource work (not a rebuild).
-2. **BRF writing target:** byte-identical round-trip is the primary requirement; semantic equivalence is not sufficient unless documented.
-3. **Module System source import:** defer Python 2 `module_items.py` import until Phase 7 (item editor) unless required earlier.
+1. **Profile storage**: `config/profiles.json` (local, git-ignored) vs project-local. Proposed: local config.
+2. **Workspace deletion**: require typing the workspace id, or a standard confirmation dialog? Proposed: typed id.
+3. **Backup retention**: keep all backups, or keep the last N per file? Proposed: keep all in Phase 2, prune in Phase 9.
 
 **Waiting for explicit user approval.**

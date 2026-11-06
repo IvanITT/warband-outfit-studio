@@ -9,7 +9,7 @@
 3. Stay local: no cloud, no telemetry, no external runtime services.
 4. Keep the Warband knowledge reusable outside the UI.
 
-## 2. Non-goals (Phase 0)
+## 2. Non-goals (current phases)
 
 - Editing meshes, textures or items.
 - Writing BRF files.
@@ -53,9 +53,12 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | `engine/modules/moduleIni.js` | Parse `module.ini` (keys, duplicates, resources, versions, capabilities). | IMPLEMENTED |
 | `engine/modules/moduleRegistry.js` | Enumerate modules, stable ids/slugs. | IMPLEMENTED |
 | `engine/items/itemKinds.js` | Parse/serialize `item_kinds1.txt`, classify slots/categories. | IMPLEMENTED |
-| `engine/resources/brf.js` | BRF token-stream parser (mesh/material/texture/shader/skeleton/body). | IMPLEMENTED |
+| `engine/resources/brf.js` | BRF token-stream parser + writer (raw-range copy, dirty objects). | IMPLEMENTED |
 | `engine/resources/brfIndex.js` | Merge all BRFs, resolve mesh families, persistent cache. | IMPLEMENTED |
 | `engine/resources/textureResolver.js` | Case-insensitive DDS discovery + page detection. | IMPLEMENTED |
+| `engine/resources/geometry.js` | Lazy mesh geometry (positions, rigging, frames, vertices, faces, bbox) with limits. | IMPLEMENTED |
+| `engine/resources/workspace.js` | Only write target: guarded paths, atomic writes, backups, SHA-256. | IMPLEMENTED |
+| `engine/items/itemFlags.js` | Generated `itp_*` / `itcf_*` decoder. | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header parser. | IMPLEMENTED |
 | `engine/validation/*` | Rule catalogue + item chain validation. | IMPLEMENTED |
 | `engine/projects/projectStore.js` | JSON projects, atomic writes, automatic backups. | IMPLEMENTED |
@@ -85,8 +88,30 @@ resolveItemChain(item)
 { item, chain: { meshes, issues, summary } }
 ```
 
-## 6. Indexing and cache
+## 6. Geometry and mutation flow (Phase 1)
 
+```
+engine.getMeshGeometry(module, name)
+        │  index.resolveMesh -> mesh entry (BRF + byte range)
+        ▼
+readMeshGeometry(source, entry, limits)
+        │  positions / rigging / frames / vertices / faces / bbox
+        ▼
+{ mesh, geometry }        (typed arrays, no caching)
+
+engine.exportBrf(workspaceId, brfPath, { meshPatches })
+        │  read installation file (read-only)
+        ├─ parseBrf -> doc
+        ├─ updateMesh(doc, mesh, patch, source) -> geometry loaded, mesh dirty
+        ├─ serializeBrf(doc, source)  -> untouched objects copied byte-for-byte
+        ▼
+WorkspaceStore.writeFile()  -> workspace/<id>/... (atomic + backup + SHA-256)
+```
+
+The installation is only read. Every persisted byte passes through
+`WorkspaceStore`, which rejects absolute paths and `..` escapes.
+
+## 7. Indexing and cache
 - **Scope**: every `.brf` in `<install>/CommonRes` plus `<module>/Resource`.
 - **Cost measured**: 219 files / 147.5 MB → ~0.5 s cold parse in Node.
 - **Cache**: `cache/brf-index-v2-<installationId>-<moduleSlug>.json`, keyed per file by `size + mtimeMs`.
@@ -96,7 +121,7 @@ resolveItemChain(item)
 
 The cache is derived data and safe to delete.
 
-## 7. HTTP API (Phase 0)
+## 8. HTTP API (Phase 0-1)
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -118,24 +143,32 @@ Errors use a stable envelope:
 { "ok": false, "error": { "code": "ITEM_NOT_FOUND", "message": "...", "details": null } }
 ```
 
-## 8. Safety model
+## 9. Safety model (updated Phase 1)
 
-1. **Read-only game access**: the engine only calls `readFile`, `stat`, `readdir`. There is no code path that writes into the installation.
-2. **Workspace separation**: projects live in `projects/`, derived data in `cache/`, backups in `backups/`.
-3. **Atomic writes**: projects and caches are written to a temp file then renamed.
-4. **Automatic backup**: overwriting an existing project copies the previous revision to `backups/projects/<id>.<timestamp>.json` first.
-5. **Path validation**: project ids match `^[a-z0-9][a-z0-9-]*$`; static serving rejects traversal.
-6. **Local binding**: the server binds `127.0.0.1` and is not reachable from the network.
-7. **Future export**: requires a dry-run report, an explicit confirmation flag and a hash-recorded backup (Phase 3).
+1. **Read-only game access**: the engine only reads installation files. Exports
+   read a BRF and write only into `workspace/`.
+2. **Workspace separation**: projects in `projects/`, derived data in `cache/`,
+   backups in `backups/` and `workspace/<id>/.backups/`, working copies in
+   `workspace/`.
+3. **Atomic writes**: files, projects and caches are written to a temp file and
+   renamed.
+4. **Automatic backup**: overwriting a project or a workspace file copies the
+   previous revision first (workspace backups also record SHA-256).
+5. **Path validation**: project/workspace ids are slugs; workspace paths cannot
+   escape their root; static serving rejects traversal.
+6. **Local binding**: the server binds `127.0.0.1` and is not reachable from the
+   network.
+7. **Deployment** (Phase 8) is still not implemented: it will require a dry-run
+   report, explicit confirmation and a hash-recorded backup of the target.
 
-## 9. Technology decisions (summary)
+## 10. Technology decisions (summary)
 
 | Concern | Choice | Why |
 |---|---|---|
 | Runtime | Node.js 22, ESM | already installed, fast binary I/O, single language across engine/backend/tools |
 | Backend | `node:http` | zero dependencies, full control, tiny footprint |
 | Frontend | vanilla HTML/CSS/JS modules | no build step, no framework churn, instant startup |
-| 3D | deferred; vendor Three.js locally in Phase 2 | offline-safe, no CDN |
+| 3D | deferred; vendor Three.js locally in Phase 3 | offline-safe, no CDN |
 | Types | JSDoc + `// @ts-check` | editor safety without a build toolchain |
 | Tests | `node:test` | built in, zero dependencies |
 | Storage | JSON files + filesystem | inspectable, diffable, no database |
@@ -143,7 +176,7 @@ Errors use a stable envelope:
 
 Full rationale and trade-offs: [DECISIONS.md](../development/DECISIONS.md).
 
-## 10. Failure modes and handling
+## 11. Failure modes and handling
 
 | Failure | Behaviour |
 |---|---|
@@ -155,7 +188,7 @@ Full rationale and trade-offs: [DECISIONS.md](../development/DECISIONS.md).
 | Port busy | tries the next 9 ports |
 | Cache directory read-only | parsing continues, cache write is ignored |
 
-## 11. Extensibility
+## 12. Extensibility
 
 - **New formats** (`.sco`, `.sav`, module system compiler) plug into `engine/` without touching the server or UI.
 - **New rules** are pure functions in `engine/validation/rules.js` with stable codes.

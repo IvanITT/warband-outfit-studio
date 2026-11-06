@@ -7,11 +7,16 @@
  */
 
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { listModules, findModule } from './modules/moduleRegistry.js';
 import { detectInstallation } from './installation/detect.js';
 import { parseItemKindsFile } from './items/itemKinds.js';
+import { decodeItemFlags, decodeCapabilities } from './items/itemFlags.js';
 import { createBrfIndex } from './resources/brfIndex.js';
 import { createTextureResolver } from './resources/textureResolver.js';
+import { parseBrf, serializeBrf, updateMesh } from './resources/brf.js';
+import { readMeshGeometry } from './resources/geometry.js';
+import { WorkspaceStore } from './resources/workspace.js';
 import { parseDdsFile } from './textures/dds.js';
 import { resolveItemChain, validateItems } from './validation/validate.js';
 import { ProjectStore } from './projects/projectStore.js';
@@ -43,6 +48,7 @@ export class WarbandEngine {
     /** @type {Map<string, Promise<ModuleData>>} */
     this.moduleData = new Map();
     this.projects = new ProjectStore({ rootDir: options.projectRoot });
+    this.workspaces = new WorkspaceStore({ rootDir: options.projectRoot });
     this.initialized = false;
     this.initMs = 0;
   }
@@ -57,6 +63,7 @@ export class WarbandEngine {
     this.candidates = detection.candidates;
     this.modules = detection.installation ? await listModules(detection.installation) : [];
     await this.projects.init();
+    await this.workspaces.init();
     this.initMs = Math.round(performance.now() - started);
     this.initialized = true;
     return this;
@@ -185,7 +192,135 @@ export class WarbandEngine {
       ddsCache: data.ddsCache,
       readDds: parseDdsFile,
     });
-    return { item, chain };
+    return {
+      item,
+      chain,
+      flags: decodeItemFlags(item.flags),
+      capabilities: decodeCapabilities(item.capabilities),
+    };
+  }
+
+  /**
+   * Read the geometry of one mesh on demand.
+   *
+   * @param {string} moduleId
+   * @param {string} meshName
+   * @param {{ limits?: Partial<import('./resources/geometry.js').GeometryLimits> }} [options]
+   */
+  async getMeshGeometry(moduleId, meshName, options = {}) {
+    const data = await this.getModuleData(moduleId);
+    const resolution = data.brfIndex.resolveMesh(meshName);
+    const entry = resolution.direct[0] ?? resolution.base[0] ?? resolution.pieces[0];
+    if (!entry) {
+      const error = new Error(`Mesh '${meshName}' was not found in module '${moduleId}'.`);
+      // @ts-expect-error machine-readable code
+      error.code = 'MESH_NOT_FOUND';
+      throw error;
+    }
+
+    const source = await readFile(entry.brf);
+    const geometry = readMeshGeometry(source, entry, {
+      file: entry.brf,
+      limits: options.limits,
+    });
+    return {
+      mesh: {
+        name: entry.name,
+        brf: entry.brf,
+        material: entry.material,
+        flags: entry.flags,
+        vertexVersion: entry.vertexVersion,
+        vertexCount: entry.vertexCount,
+        faceCount: entry.faceCount,
+        rigged: entry.rigged,
+        nameInfo: entry.nameInfo,
+      },
+      geometry,
+    };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Workspaces (the only write target)                                */
+  /* ---------------------------------------------------------------- */
+
+  /** @param {string} label */
+  async createWorkspace(label) {
+    this.requireInstallation();
+    return this.workspaces.create({ label });
+  }
+
+  async listWorkspaces() {
+    return this.workspaces.list();
+  }
+
+  /**
+   * Locate a BRF by file name in `CommonRes` or the module `Resource` folder.
+   * @param {string} moduleId
+   * @param {string} fileName
+   */
+  async findBrf(moduleId, fileName) {
+    const installation = this.requireInstallation();
+    const module = this.requireModule(moduleId);
+    const base = path.basename(fileName);
+    const candidates = [
+      installation.commonResDir,
+      path.join(module.path, 'Resource'),
+    ].filter(Boolean);
+    for (const directory of candidates) {
+      const found = await resolveCaseInsensitive(/** @type {string} */ (directory), base);
+      if (found) return found;
+    }
+    const error = new Error(`BRF '${fileName}' was not found in CommonRes or module '${moduleId}'.`);
+    // @ts-expect-error machine-readable code
+    error.code = 'BRF_NOT_FOUND';
+    throw error;
+  }
+
+  /**
+   * Serialize a BRF into a workspace, optionally patching mesh materials.
+   * The installation is only read; every byte written goes to `workspace/`.
+   *
+   * @param {string} workspaceId
+   * @param {string} brfPath
+   * @param {{ relativePath?: string, meshPatches?: Array<{mesh:string, material?:string, flags?:number}> }} [options]
+   */
+  async exportBrf(workspaceId, brfPath, options = {}) {
+    const installation = this.requireInstallation();
+    const absolute = path.resolve(brfPath);
+    const root = path.resolve(installation.rootPath);
+    if (absolute !== root && !absolute.startsWith(root + path.sep)) {
+      const error = new Error('BRF source must be inside the Warband installation');
+      // @ts-expect-error machine-readable code
+      error.code = 'PATH_OUTSIDE_INSTALLATION';
+      throw error;
+    }
+
+    const source = await readFile(absolute);
+    const doc = parseBrf(source, { file: absolute });
+
+    for (const patch of options.meshPatches ?? []) {
+      const mesh = doc.meshes.find((candidate) => candidate.name === patch.mesh);
+      if (!mesh) {
+        const error = new Error(`Mesh '${patch.mesh}' not found in ${path.basename(absolute)}.`);
+        // @ts-expect-error machine-readable code
+        error.code = 'MESH_NOT_FOUND';
+        throw error;
+      }
+      updateMesh(doc, mesh, { material: patch.material, flags: patch.flags }, source);
+    }
+
+    const relativePath = options.relativePath ?? path.basename(absolute);
+    const buffer = serializeBrf(doc, source);
+    const result = await this.workspaces.writeFile(workspaceId, relativePath, buffer);
+    return {
+      ...result,
+      sourceBrf: absolute,
+      relativePath,
+      meshes: doc.meshes.length,
+      materials: doc.materials.length,
+      patchedMeshes: (options.meshPatches ?? []).length,
+      serializedBytes: buffer.length,
+    };
   }
 
   /**

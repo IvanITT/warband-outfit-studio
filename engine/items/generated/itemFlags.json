@@ -1,0 +1,856 @@
+{
+  "source": "header_items.py",
+  "sourceSha256": "f636066cb69e808d99c3c4e74e0ebaae07fc75d3644674132c5c2eb47a8c6367",
+  "generatedAt": "2026-11-06T09:34:02.092Z",
+  "generator": "tools/generate-item-flags.js",
+  "note": "Generated from the official Module System header_items.py. Do not edit by hand.",
+  "fields": {
+    "type": {
+      "mask": "31",
+      "hex": "0x1F"
+    },
+    "attachment": {
+      "mask": "3840",
+      "hex": "0xF00"
+    },
+    "carry": {
+      "mask": "34091302912",
+      "hex": "0x7F0000000"
+    },
+    "shoot": {
+      "mask": "1044480",
+      "hex": "0xFF000"
+    }
+  },
+  "types": [
+    {
+      "name": "itp_type_horse",
+      "value": "1",
+      "hex": "0x1",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_one_handed_wpn",
+      "value": "2",
+      "hex": "0x2",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_two_handed_wpn",
+      "value": "3",
+      "hex": "0x3",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_polearm",
+      "value": "4",
+      "hex": "0x4",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_arrows",
+      "value": "5",
+      "hex": "0x5",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_bolts",
+      "value": "6",
+      "hex": "0x6",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_shield",
+      "value": "7",
+      "hex": "0x7",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_bow",
+      "value": "8",
+      "hex": "0x8",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_crossbow",
+      "value": "9",
+      "hex": "0x9",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_thrown",
+      "value": "10",
+      "hex": "0xA",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_goods",
+      "value": "11",
+      "hex": "0xB",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_head_armor",
+      "value": "12",
+      "hex": "0xC",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_body_armor",
+      "value": "13",
+      "hex": "0xD",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_foot_armor",
+      "value": "14",
+      "hex": "0xE",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_hand_armor",
+      "value": "15",
+      "hex": "0xF",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_pistol",
+      "value": "16",
+      "hex": "0x10",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_musket",
+      "value": "17",
+      "hex": "0x11",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_bullets",
+      "value": "18",
+      "hex": "0x12",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_animal",
+      "value": "19",
+      "hex": "0x13",
+      "aliases": []
+    },
+    {
+      "name": "itp_type_book",
+      "value": "20",
+      "hex": "0x14",
+      "aliases": []
+    }
+  ],
+  "attachment": [
+    {
+      "name": "itp_force_attach_left_hand",
+      "value": "256",
+      "hex": "0x100",
+      "aliases": []
+    },
+    {
+      "name": "itp_force_attach_right_hand",
+      "value": "512",
+      "hex": "0x200",
+      "aliases": []
+    },
+    {
+      "name": "itp_force_attach_left_forearm",
+      "value": "768",
+      "hex": "0x300",
+      "aliases": []
+    },
+    {
+      "name": "itp_attach_armature",
+      "value": "3840",
+      "hex": "0xF00",
+      "aliases": []
+    }
+  ],
+  "flags": [
+    {
+      "name": "itp_unique",
+      "value": "4096",
+      "hex": "0x1000",
+      "aliases": []
+    },
+    {
+      "name": "itp_always_loot",
+      "value": "8192",
+      "hex": "0x2000",
+      "aliases": []
+    },
+    {
+      "name": "itp_no_parry",
+      "value": "16384",
+      "hex": "0x4000",
+      "aliases": []
+    },
+    {
+      "name": "itp_default_ammo",
+      "value": "32768",
+      "hex": "0x8000",
+      "aliases": []
+    },
+    {
+      "name": "itp_merchandise",
+      "value": "65536",
+      "hex": "0x10000",
+      "aliases": []
+    },
+    {
+      "name": "itp_wooden_attack",
+      "value": "131072",
+      "hex": "0x20000",
+      "aliases": []
+    },
+    {
+      "name": "itp_wooden_parry",
+      "value": "262144",
+      "hex": "0x40000",
+      "aliases": []
+    },
+    {
+      "name": "itp_food",
+      "value": "524288",
+      "hex": "0x80000",
+      "aliases": []
+    },
+    {
+      "name": "itp_cant_reload_on_horseback",
+      "value": "1048576",
+      "hex": "0x100000",
+      "aliases": []
+    },
+    {
+      "name": "itp_two_handed",
+      "value": "2097152",
+      "hex": "0x200000",
+      "aliases": []
+    },
+    {
+      "name": "itp_primary",
+      "value": "4194304",
+      "hex": "0x400000",
+      "aliases": []
+    },
+    {
+      "name": "itp_secondary",
+      "value": "8388608",
+      "hex": "0x800000",
+      "aliases": []
+    },
+    {
+      "name": "itp_covers_legs",
+      "value": "16777216",
+      "hex": "0x1000000",
+      "aliases": [
+        "itp_doesnt_cover_hair",
+        "itp_can_penetrate_shield"
+      ]
+    },
+    {
+      "name": "itp_consumable",
+      "value": "33554432",
+      "hex": "0x2000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_bonus_against_shield",
+      "value": "67108864",
+      "hex": "0x4000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_penalty_with_shield",
+      "value": "134217728",
+      "hex": "0x8000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_cant_use_on_horseback",
+      "value": "268435456",
+      "hex": "0x10000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_civilian",
+      "value": "536870912",
+      "hex": "0x20000000",
+      "aliases": [
+        "itp_next_item_as_melee"
+      ]
+    },
+    {
+      "name": "itp_fit_to_head",
+      "value": "1073741824",
+      "hex": "0x40000000",
+      "aliases": [
+        "itp_offset_lance"
+      ]
+    },
+    {
+      "name": "itp_covers_head",
+      "value": "2147483648",
+      "hex": "0x80000000",
+      "aliases": [
+        "itp_couchable"
+      ]
+    },
+    {
+      "name": "itp_crush_through",
+      "value": "4294967296",
+      "hex": "0x100000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_remove_item_on_use",
+      "value": "17179869184",
+      "hex": "0x400000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_unbalanced",
+      "value": "34359738368",
+      "hex": "0x800000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_covers_beard",
+      "value": "68719476736",
+      "hex": "0x1000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_no_pick_up_from_ground",
+      "value": "137438953472",
+      "hex": "0x2000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_can_knock_down",
+      "value": "274877906944",
+      "hex": "0x4000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_covers_hair",
+      "value": "549755813888",
+      "hex": "0x8000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_force_show_body",
+      "value": "1099511627776",
+      "hex": "0x10000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_force_show_left_hand",
+      "value": "2199023255552",
+      "hex": "0x20000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_force_show_right_hand",
+      "value": "4398046511104",
+      "hex": "0x40000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_covers_hair_partially",
+      "value": "8796093022208",
+      "hex": "0x80000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_extra_penetration",
+      "value": "17592186044416",
+      "hex": "0x100000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_has_bayonet",
+      "value": "35184372088832",
+      "hex": "0x200000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_cant_reload_while_moving",
+      "value": "70368744177664",
+      "hex": "0x400000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_ignore_gravity",
+      "value": "140737488355328",
+      "hex": "0x800000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_ignore_friction",
+      "value": "281474976710656",
+      "hex": "0x1000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_is_pike",
+      "value": "562949953421312",
+      "hex": "0x2000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_offset_musket",
+      "value": "1125899906842624",
+      "hex": "0x4000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_no_blur",
+      "value": "2251799813685248",
+      "hex": "0x8000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_cant_reload_while_moving_mounted",
+      "value": "4503599627370496",
+      "hex": "0x10000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_has_upper_stab",
+      "value": "9007199254740992",
+      "hex": "0x20000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itp_disable_agent_sounds",
+      "value": "18014398509481984",
+      "hex": "0x40000000000000",
+      "aliases": []
+    }
+  ],
+  "carry": [
+    {
+      "name": "itcf_carry_sword_left_hip",
+      "value": "268435456",
+      "hex": "0x10000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_axe_left_hip",
+      "value": "536870912",
+      "hex": "0x20000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_dagger_front_left",
+      "value": "805306368",
+      "hex": "0x30000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_dagger_front_right",
+      "value": "1073741824",
+      "hex": "0x40000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_quiver_front_right",
+      "value": "1342177280",
+      "hex": "0x50000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_quiver_back_right",
+      "value": "1610612736",
+      "hex": "0x60000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_quiver_right_vertical",
+      "value": "1879048192",
+      "hex": "0x70000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_quiver_back",
+      "value": "2147483648",
+      "hex": "0x80000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_revolver_right",
+      "value": "2415919104",
+      "hex": "0x90000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_pistol_front_left",
+      "value": "2684354560",
+      "hex": "0xA0000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_bowcase_left",
+      "value": "2952790016",
+      "hex": "0xB0000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_mace_left_hip",
+      "value": "3221225472",
+      "hex": "0xC0000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_axe_back",
+      "value": "4294967296",
+      "hex": "0x100000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_sword_back",
+      "value": "4563402752",
+      "hex": "0x110000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_kite_shield",
+      "value": "4831838208",
+      "hex": "0x120000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_round_shield",
+      "value": "5100273664",
+      "hex": "0x130000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_buckler_left",
+      "value": "5368709120",
+      "hex": "0x140000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_crossbow_back",
+      "value": "5637144576",
+      "hex": "0x150000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_bow_back",
+      "value": "5905580032",
+      "hex": "0x160000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_spear",
+      "value": "6174015488",
+      "hex": "0x170000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_board_shield",
+      "value": "6442450944",
+      "hex": "0x180000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_katana",
+      "value": "8858370048",
+      "hex": "0x210000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_carry_wakizashi",
+      "value": "9126805504",
+      "hex": "0x220000000",
+      "aliases": []
+    }
+  ],
+  "shoot": [
+    {
+      "name": "itcf_shoot_bow",
+      "value": "4096",
+      "hex": "0x1000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_shoot_javelin",
+      "value": "8192",
+      "hex": "0x2000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_shoot_crossbow",
+      "value": "16384",
+      "hex": "0x4000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_throw_stone",
+      "value": "65536",
+      "hex": "0x10000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_throw_knife",
+      "value": "131072",
+      "hex": "0x20000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_throw_axe",
+      "value": "196608",
+      "hex": "0x30000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_throw_javelin",
+      "value": "262144",
+      "hex": "0x40000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_shoot_pistol",
+      "value": "458752",
+      "hex": "0x70000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_shoot_musket",
+      "value": "524288",
+      "hex": "0x80000",
+      "aliases": []
+    }
+  ],
+  "capabilities": [
+    {
+      "name": "itcf_thrust_onehanded",
+      "value": "1",
+      "hex": "0x1",
+      "aliases": []
+    },
+    {
+      "name": "itcf_overswing_onehanded",
+      "value": "2",
+      "hex": "0x2",
+      "aliases": []
+    },
+    {
+      "name": "itcf_slashright_onehanded",
+      "value": "4",
+      "hex": "0x4",
+      "aliases": []
+    },
+    {
+      "name": "itcf_slashleft_onehanded",
+      "value": "8",
+      "hex": "0x8",
+      "aliases": []
+    },
+    {
+      "name": "itcf_thrust_twohanded",
+      "value": "16",
+      "hex": "0x10",
+      "aliases": []
+    },
+    {
+      "name": "itcf_overswing_twohanded",
+      "value": "32",
+      "hex": "0x20",
+      "aliases": []
+    },
+    {
+      "name": "itcf_slashright_twohanded",
+      "value": "64",
+      "hex": "0x40",
+      "aliases": []
+    },
+    {
+      "name": "itcf_slashleft_twohanded",
+      "value": "128",
+      "hex": "0x80",
+      "aliases": []
+    },
+    {
+      "name": "itcf_thrust_polearm",
+      "value": "256",
+      "hex": "0x100",
+      "aliases": []
+    },
+    {
+      "name": "itcf_overswing_polearm",
+      "value": "512",
+      "hex": "0x200",
+      "aliases": []
+    },
+    {
+      "name": "itcf_slashright_polearm",
+      "value": "1024",
+      "hex": "0x400",
+      "aliases": []
+    },
+    {
+      "name": "itcf_slashleft_polearm",
+      "value": "2048",
+      "hex": "0x800",
+      "aliases": []
+    },
+    {
+      "name": "itcf_horseback_thrust_onehanded",
+      "value": "1048576",
+      "hex": "0x100000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_horseback_overswing_right_onehanded",
+      "value": "2097152",
+      "hex": "0x200000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_horseback_overswing_left_onehanded",
+      "value": "4194304",
+      "hex": "0x400000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_horseback_slashright_onehanded",
+      "value": "8388608",
+      "hex": "0x800000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_horseback_slashleft_onehanded",
+      "value": "16777216",
+      "hex": "0x1000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_thrust_onehanded_lance",
+      "value": "67108864",
+      "hex": "0x4000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_thrust_onehanded_lance_horseback",
+      "value": "134217728",
+      "hex": "0x8000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_show_holster_when_drawn",
+      "value": "34359738368",
+      "hex": "0x800000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_reload_musket",
+      "value": "549755813888",
+      "hex": "0x8000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_forward_onehanded",
+      "value": "1099511627776",
+      "hex": "0x10000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_up_onehanded",
+      "value": "2199023255552",
+      "hex": "0x20000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_right_onehanded",
+      "value": "4398046511104",
+      "hex": "0x40000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_left_onehanded",
+      "value": "8796093022208",
+      "hex": "0x80000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_forward_twohanded",
+      "value": "17592186044416",
+      "hex": "0x100000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_up_twohanded",
+      "value": "35184372088832",
+      "hex": "0x200000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_right_twohanded",
+      "value": "70368744177664",
+      "hex": "0x400000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_left_twohanded",
+      "value": "140737488355328",
+      "hex": "0x800000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_forward_polearm",
+      "value": "281474976710656",
+      "hex": "0x1000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_up_polearm",
+      "value": "562949953421312",
+      "hex": "0x2000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_right_polearm",
+      "value": "1125899906842624",
+      "hex": "0x4000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_parry_left_polearm",
+      "value": "2251799813685248",
+      "hex": "0x8000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_horseback_slash_polearm",
+      "value": "4503599627370496",
+      "hex": "0x10000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_overswing_spear",
+      "value": "9007199254740992",
+      "hex": "0x20000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_overswing_musket",
+      "value": "18014398509481984",
+      "hex": "0x40000000000000",
+      "aliases": []
+    },
+    {
+      "name": "itcf_thrust_musket",
+      "value": "36028797018963968",
+      "hex": "0x80000000000000",
+      "aliases": []
+    }
+  ]
+}

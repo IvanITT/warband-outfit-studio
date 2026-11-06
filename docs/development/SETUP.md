@@ -56,7 +56,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 0 result: **40 passing**.
+Expected Phase 1 result: **61 passing**.
 
 ## CLI tools
 
@@ -72,6 +72,14 @@ node tools\build-index.js --no-cache
 
 :: Inspect a BRF file
 node tools\inspect-brf.js "C:\Games\...\CommonRes\armors_g.brf"
+
+:: Serialize a BRF into workspace/ (optionally patch a mesh material)
+node tools\export-brf.js "C:\Games\...\CommonRes\armors_g.brf" --workspace demo
+node tools\export-brf.js "C:\Games\...\CommonRes\armors_g.brf" --workspace demo ^
+     --mesh mail_shirt_a --material test_material
+
+:: Regenerate the item-flag table from the official Module System header
+node tools\generate-item-flags.js --header "C:\...\Module_system 1.171\header_items.py"
 ```
 
 ## Project files
@@ -80,7 +88,7 @@ node tools\inspect-brf.js "C:\Games\...\CommonRes\armors_g.brf"
 projects/        project JSON (user data)
 backups/         automatic project backups
 cache/           BRF index cache (derived, safe to delete)
-workspace/       scratch space for future import jobs
+workspace/       working copies written by the engine (BRF exports, backups)
 ```
 
 `cache/`, `projects/*.json` and `backups/` are git-ignored.

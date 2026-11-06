@@ -10,6 +10,7 @@
 import path from 'node:path';
 import { readFile, writeFile, copyFile } from 'node:fs/promises';
 import { ensureDir, exists, listDir, readJson, writeJsonAtomic } from '../util/fsx.js';
+import { slugify as baseSlugify } from '../util/slug.js';
 
 export const PROJECT_SCHEMA_VERSION = 1;
 
@@ -34,13 +35,7 @@ const ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
  * @param {string} value
  */
 export function slugify(value) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 48) || 'project';
+  return baseSlugify(value, 'project');
 }
 
 export class ProjectStore {

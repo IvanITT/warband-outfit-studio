@@ -368,6 +368,54 @@ input[type="search"]::placeholder { color: var(--text-dim); }
 .hint { font-size: 11.5px; color: var(--text-dim); }
 .mono { font-family: var(--mono); }
 
+/* ---------- flags ---------- */
+
+.flags-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  margin: 0 0 22px;
+  overflow: hidden;
+}
+.flags-box summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 13px;
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  user-select: none;
+}
+.flags-box summary::-webkit-details-marker { display: none; }
+.flags-box summary::before {
+  content: "▸";
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+.flags-box[open] summary::before { content: "▾"; }
+.flags-hex { margin-left: auto; font-size: 10px; color: var(--text-dim); text-transform: none; letter-spacing: 0; }
+
+.flag-group { padding: 2px 13px 10px; display: grid; gap: 6px; }
+.flag-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
+.flag-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.flag {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  background: var(--bg);
+}
+.flag.type { color: var(--accent-strong); border-color: rgba(216, 162, 74, 0.5); background: var(--accent-soft); }
+.flag.field { color: var(--info); border-color: rgba(91, 157, 217, 0.45); background: var(--info-soft); }
+.flag.unknown { color: var(--error); border-color: rgba(224, 96, 94, 0.45); background: var(--error-soft); }
+
 /* ---------- validation ---------- */
 
 .validation { flex: 1; overflow-y: auto; padding: 12px; display: grid; gap: 8px; align-content: start; }

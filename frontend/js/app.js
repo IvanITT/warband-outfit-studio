@@ -268,7 +268,7 @@ function showDetailEmpty(message) {
   );
 }
 
-function renderDetail({ item, chain }) {
+function renderDetail({ item, chain, flags, capabilities }) {
   const armorValue = item.slot === 'head' ? item.headArmor : item.slot === 'foot' ? item.legArmor : item.bodyArmor;
   const header = el('div', { class: 'detail-header' }, [
     el('div', { class: 'detail-title' }, [
@@ -300,7 +300,45 @@ function renderDetail({ item, chain }) {
     el('div', { class: 'chain' }, chain.meshes.map(renderMeshNode)),
   ]);
 
-  dom.detail.replaceChildren(header, stats, chainSection);
+  dom.detail.replaceChildren(header, stats, renderFlags(flags, capabilities), chainSection);
+}
+
+function flagChip(symbol, tone = '') {
+  if (!symbol) return null;
+  return el('span', {
+    class: `flag ${tone}`.trim(),
+    text: symbol.name,
+    title: symbol.aliases?.length ? `Alias: ${symbol.aliases.join(', ')}` : symbol.hex,
+  });
+}
+
+function renderFlags(flags, capabilities) {
+  const chips = [];
+  if (flags?.type) chips.push(flagChip(flags.type, 'type'));
+  if (flags?.attachment) chips.push(flagChip(flags.attachment, 'field'));
+  for (const flag of flags?.flags ?? []) chips.push(flagChip(flag));
+  if (flags?.unknownHex) chips.push(el('span', { class: 'flag unknown', text: `unknown ${flags.unknownHex}` }));
+
+  const capChips = [];
+  if (capabilities?.carry) capChips.push(flagChip(capabilities.carry, 'field'));
+  if (capabilities?.shoot) capChips.push(flagChip(capabilities.shoot, 'field'));
+  for (const flag of capabilities?.flags ?? []) capChips.push(flagChip(flag));
+  if (capabilities?.unknownHex) capChips.push(el('span', { class: 'flag unknown', text: `unknown ${capabilities.unknownHex}` }));
+
+  return el('details', { class: 'flags-box', open: true }, [
+    el('summary', {}, [
+      el('span', { text: 'Flags y capacidades' }),
+      el('span', { class: 'flags-hex mono', text: `${flags?.hex ?? ''} · ${capabilities?.hex ?? ''}` }),
+    ]),
+    el('div', { class: 'flag-group' }, [
+      el('span', { class: 'flag-label', text: 'Item' }),
+      el('div', { class: 'flag-grid' }, chips),
+    ]),
+    el('div', { class: 'flag-group' }, [
+      el('span', { class: 'flag-label', text: 'Capabilities' }),
+      el('div', { class: 'flag-grid' }, capChips.length ? capChips : [el('span', { class: 'hint', text: 'Sin capacidades' })]),
+    ]),
+  ]);
 }
 
 function stat(label, value, accent = false) {

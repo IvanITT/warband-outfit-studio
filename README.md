@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 0 (current): architecture, engine foundation, read-only inspection, validation.**
+- **Phase 1 (current): resource engine — BRF writing, lazy geometry, symbolic item flags, workspace-only mutation.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -43,7 +43,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-40 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+61 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -51,6 +51,8 @@ npm test
 node tools/build-index.js                 :: pre-build the BRF/texture index
 node tools/build-index.js --module "Viking Conquest"
 node tools/inspect-brf.js "C:\...\CommonRes\armors_g.brf"
+node tools/export-brf.js "C:\...\CommonRes\armors_g.brf" --workspace demo
+node tools/generate-item-flags.js --header "C:\...\Module_system 1.171\header_items.py"
 ```
 
 ## Project layout
@@ -82,8 +84,8 @@ backups/      automatic project backups
 - The engine opens game files read-only.
 - Projects are written to `projects/` inside this repository.
 - Saving an existing project copies the previous revision to `backups/projects/`.
-- Exporting into a module is **not implemented** in Phase 0. When it is, it will require explicit confirmation and a hash-recorded backup.
+- Exporting into a module is **not implemented** yet. Serialized BRFs can be written to `workspace/`; deployment (Phase 8) will require explicit confirmation and a hash-recorded backup.
 
 ## Status
 
-Phase 0 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and Phase 1 scope.
+Phase 1 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 2 scope.

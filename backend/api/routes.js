@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.1.0',
-        phase: 0,
+        version: '0.2.0',
+        phase: 1,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };

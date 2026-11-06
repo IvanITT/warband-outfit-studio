@@ -179,7 +179,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const started = await startServer();
   console.log('');
-  console.log('  WARBand Outfit Studio — Phase 0');
+  console.log('  WARBand Outfit Studio — Phase 1');
   console.log(`  ${started.url}`);
   if (!started.engine.installation) {
     console.log('  WARNING: no Warband installation detected. See /api/status for candidates.');

@@ -76,20 +76,53 @@ Invariants:
 ```
 BrfDocument
   version            0 (M&B) | 1 (Warband)
-  tokenOrder[]
-  textures[]         { name, flags, frames }
-  shaders[]          { name, flags, requires, technique, fallback, options[] }
-  materials[]        { name, flags, shader, diffuseA, diffuseB, bump,
-                       enviro, spec, specular, r, g, b }
+  header             { present, version, rawStart, rawEnd } | null
+  sections[]         { token, count, items[], rawStart, rawEnd }
+  textures[]         { name, flags, frames, rawStart, rawEnd }
+  shaders[]          { name, flags, requires, technique, fallback, options[], rawStart, rawEnd }
+  materials[]        { name, flags, shader, diffuseA, diffuseB, bump, enviro,
+                       spec, specPresent, specular, r, g, b, rawStart, rawEnd }
   meshes[]           { name, flags, material, vertexVersion, vertexCount,
                        faceCount, frameCount, positionCount, rigged,
-                       nameInfo: { base, lodLevel, pieceIndex, isLod,
-                                   isCollisionBody } }
-  skeletons[]        { name, boneCount, boneNames[] }
-  animations[]       { name, boneCount, translationCount }
-  bodies[]           { name, kind, partCount }
+                       nameInfo, rawStart, rawEnd, dirty, geometry }
+  skeletons[]        { name, boneCount, boneNames, bones[], rawStart, rawEnd }
+  animations[]       { name, boneCount, translationCount, rawStart, rawEnd }
+  bodies[]           { name, kind, partCount, rawStart, rawEnd }
   bytesRead, fileBytes, counts
 ```
+
+Every object records its exact byte range. `serializeBrf(doc, source)` copies
+untouched ranges verbatim (byte-identical output) and re-encodes only dirty
+objects. `sections` preserves the order and count of token blocks.
+
+```
+MeshGeometry
+  positionCount, positions: Float32Array      # x,y,z
+  rigging[]        { boneIndex, pairs[{vertexIndex, weight}] }
+  frames[]         { time, positions, normals }
+  vertexCount, layout, vertices{
+    index: Int32Array, color: Uint32Array, normal: Float32Array,
+    tangent: Float32Array|null, textureIndex: Uint8Array|null,
+    uv: Float32Array, uv2: Float32Array|null
+  }
+  faceCount, faces: Uint32Array
+  bbox             { min:[x,y,z], max:[x,y,z] } | null
+  bytes, flags, material
+```
+
+Geometry is lazy: indexing stores metadata only; `engine.getMeshGeometry()`
+reads one mesh and enforces allocation limits.
+
+```
+DecodedFlags / DecodedCapabilities
+  value, hex
+  type / attachment / carry / shoot   symbol | null
+  flags[]                             { name, hex, aliases[] }
+  unknownHex                          string | null
+```
+
+Enums are decoded as fields (type, attachment, carry, shoot) and never as
+independent bits.
 
 ```
 BrfIndex
@@ -107,7 +140,6 @@ BrfIndex
 ```
 
 ## 4. Resolved chain
-
 ```
 ItemChain
   item     { id, name, slot, category, value, armor:{head,body,leg} }
@@ -171,17 +203,51 @@ WarbandProject
 Projects are stored in `projects/<id>.json` and validated on load. Saving an
 existing project first copies it to `backups/projects/`.
 
-## 7. Deliberate omissions (Phase 0)
+## 7. Workspaces
 
-| Concept | Why it is missing | Phase |
+```
+WorkspaceMetadata
+  schemaVersion   1
+  id              slug, validated, matches the directory name
+  label
+  createdAt, updatedAt
+  files           { [relativePath]: { bytes, sha256, updatedAt } }
+```
+
+Layout:
+
+```
+workspace/<id>/.workspace.json
+workspace/<id>/.backups/<timestamp>/<relativePath>
+workspace/<id>/<relativePath>
+```
+
+Invariants and safety rules (tested):
+
+- Paths are relative; `.`/`..`, absolute paths, drive letters and NUL bytes are
+  rejected.
+- The resolved path must stay inside `workspace/<id>/`.
+- Overwriting a file first copies the previous revision under `.backups/` and
+  records its SHA-256.
+- Writes are atomic (temp file + rename).
+- The game installation is never a destination; exports only read from it.
+
+`WorkspaceStore.writeBrf()` serializes a `BrfDocument` and writes it through the
+same guarded path.
+
+## 8. Deliberate omissions (updated after Phase 1)
+
+| Concept | Status | Phase |
 |---|---|---|
-| Geometry buffers | Not needed for inspection; keeps the index light | 2 |
-| Skeleton/rig data per mesh | Same | 2 |
-| Item flag symbols | Needs the full `header_items.py` table | 1 |
-| Outfit composition rules | Depends on slot/attachment research | 2 |
-| Export job | Requires BRF writer + module backup flow | 3 |
+| Geometry buffers | **Implemented** (lazy, typed arrays, limits) | 1 |
+| Item flag symbols | **Implemented** (generated table + decoder) | 1 |
+| BRF writer | **Implemented** (raw-range copy + dirty objects) | 1 |
+| Skeleton/rig data per mesh | Raw rigging available; bones exposed in `BrfSkeleton` | 1 |
+| Outfit composition rules | Not started | 6 |
+| Export job / module integration | Workspace-only serialization exists; deployment not started | 8 |
+| 3D rendering | Not started | 3 |
 
-## 8. Identity rules
+## 9. Identity rules
 
 - **Module identity** = directory name (case preserved), plus a lowercase slug for URLs.
 - **Item identity** = record id (`itm_*`).
