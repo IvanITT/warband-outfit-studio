@@ -36,11 +36,11 @@ and switched at any time.
 
 ## Run
 
-```bat
-Warband Outfit Studio.cmd
-```
+Double-click **`WARBand Outfit Studio.exe`**. It starts the server and opens
+the browser; closing the console window stops the server via a Windows Job
+Object. The `.cmd` launcher is a fallback for source checkouts.
 
-or:
+Manual development:
 
 ```bat
 node backend\server\index.js --open

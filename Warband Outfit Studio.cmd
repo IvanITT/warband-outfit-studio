@@ -3,6 +3,11 @@ setlocal
 cd /d "%~dp0"
 title WARBand Outfit Studio
 
+if exist "%~dp0WARBand Outfit Studio.exe" (
+  "%~dp0WARBand Outfit Studio.exe"
+  exit /b %errorlevel%
+)
+
 where node >nul 2>nul
 if errorlevel 1 (
   echo.

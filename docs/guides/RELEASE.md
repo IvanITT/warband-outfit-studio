@@ -7,7 +7,8 @@ npm run release
 The default output is `dist/warband-outfit-studio-<version>/`. It contains:
 
 - `engine/`, `backend/`, `frontend/`, `docs/`
-- `WARBand Outfit Studio.cmd`
+- `WARBand Outfit Studio.exe` (root launcher; Job Object cleanup)
+- `WARBand Outfit Studio.cmd` (fallback)
 - `runtime/node.exe` (unless `--no-runtime`)
 - `config/app.example.json`
 - empty `projects/`, `workspace/`, `cache/`, `backups/`

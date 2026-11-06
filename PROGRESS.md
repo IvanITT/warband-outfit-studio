@@ -889,7 +889,7 @@ setup, diagnostics/logs, recovery guidance and accessibility polish.
 
 ### Tests
 
-`npm test` → **115 / 115 passing** (~6.1 s).
+`npm test` → **115 / 115 passing** (~8.3 s).
 
 New coverage:
 
@@ -935,3 +935,16 @@ New coverage:
 
 Tag `phase-10-production`. The Phase 0–10 roadmap is feature-complete. No game
 files were modified. `npm test` green.
+
+### Post-phase launcher
+
+- Added root `WARBand Outfit Studio.exe` (small .NET Framework 4 launcher).
+- Starts `backend/server/index.js --open`; bundled `runtime/node.exe` is used
+  when present, otherwise Node from `PATH`.
+- Assigns the server to a Windows Job Object with kill-on-close, so closing the
+  launcher window stops the server and its child processes.
+- `Warband Outfit Studio.cmd` now delegates to the executable and remains a
+  fallback.
+- Release builder includes the executable and reports it as the entrypoint.
+- Verified manually: launch on port 8792, terminate launcher, port 8792 closes
+  while an unrelated server on 8791 remains running.

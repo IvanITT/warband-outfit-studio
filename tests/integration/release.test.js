@@ -16,6 +16,7 @@ test('builds a portable release and starts its server', { skip: existsSync(path.
   assert.equal(result.bundledRuntime, false);
   for (const relative of [
     'WARBand Outfit Studio.cmd',
+    'WARBand Outfit Studio.exe',
     'BUILD-INFO.json',
     'backend/server/index.js',
     'engine/index.js',
@@ -32,6 +33,7 @@ test('builds a portable release and starts its server', { skip: existsSync(path.
 
   const info = JSON.parse(await readFile(path.join(outDir, 'BUILD-INFO.json'), 'utf8'));
   assert.equal(info.bundledRuntime, false);
+  assert.equal(info.entrypoint, 'WARBand Outfit Studio.exe');
   assert.equal(info.runtimeEntrypoint, 'backend/server/index.js');
 
   const releaseServer = await import(pathToFileURL(path.join(outDir, 'backend', 'server', 'index.js')).href);

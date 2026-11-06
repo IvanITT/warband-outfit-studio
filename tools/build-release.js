@@ -39,7 +39,10 @@ export async function buildRelease(options = {}) {
   for (const directory of ['engine', 'backend', 'frontend']) {
     await cp(path.join(root, directory), path.join(outDir, directory), { recursive: true, force: true });
   }
-  for (const file of ['README.md', 'LICENSE', 'PROJECT_PLAN.md', 'PROGRESS.md', 'package.json']) {
+  for (const file of [
+    'README.md', 'LICENSE', 'PROJECT_PLAN.md', 'PROGRESS.md', 'package.json',
+    'WARBand Outfit Studio.exe',
+  ]) {
     await copyIfExists(path.join(root, file), path.join(outDir, file));
   }
   await copyIfExists(path.join(root, 'docs'), path.join(outDir, 'docs'));
@@ -108,7 +111,7 @@ export async function buildRelease(options = {}) {
     createdAt: new Date().toISOString(),
     node: process.version,
     bundledRuntime: runtime,
-    entrypoint: 'WARBand Outfit Studio.cmd',
+    entrypoint: 'WARBand Outfit Studio.exe',
     runtimeEntrypoint: 'backend/server/index.js',
     writableDirectories: ['projects', 'workspace', 'cache', 'backups'],
   };

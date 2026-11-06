@@ -511,3 +511,18 @@ for installation management.
 
 **Consequences:** the wizard must be dismissible; users can reopen it with the
 gear button. Non-standard installations still require manual path entry.
+
+## ADR-047 — Root launcher owns the server through a Job Object
+
+**Decision:** `WARBand Outfit Studio.exe` on the project root starts
+`backend\server\index.js --open`, assigns the child to a Windows Job Object with
+`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, and waits for it. The `.cmd` remains a
+source/fallback launcher.
+
+**Rationale:** closing a console window should not leave a hidden Node server
+listening. A kill-on-close Job Object provides deterministic cleanup even if the
+launcher is terminated abruptly, without a service or background daemon.
+
+**Consequences:** the launcher is a small .NET Framework 4 Windows executable;
+the Node runtime must exist on PATH or as `runtime\node.exe`. Closing the
+launcher also stops any processes still inside its job.

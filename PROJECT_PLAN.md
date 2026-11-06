@@ -359,6 +359,7 @@ Completed:
 Completed:
 
 - Portable release builder with optional bundled Node runtime and Windows launcher.
+- Root `WARBand Outfit Studio.exe` launcher: starts Node, opens the browser and assigns the server to a Job Object with kill-on-close, so closing the launcher stops all started processes.
 - First-run installation wizard opens automatically when no installation is registered.
 - **Sistema** diagnostics view: health checks, environment, recovery guidance and server log tail.
 - Server diagnostics logging (`cache/logs/server.log`, 1 MB rotation) and `/api/diagnostics` / `/api/logs`.
@@ -661,6 +662,9 @@ the game is a deliberate manual copy, not an automated write (ADR-037).
 
 - `tools/build-release.js` / `npm run release`: portable folder with optional
   bundled Node runtime, Windows launcher, docs and empty writable directories.
+- Root `WARBand Outfit Studio.exe`: starts Node, opens the browser and keeps
+  the server in a Job Object with kill-on-close; closing the window stops the
+  server and its child processes. `.cmd` remains the fallback.
 - First-run wizard opens automatically when no installation is registered.
 - **Sistema** view: Node/installation/modules/writable-root checks, environment
   data, recovery guidance and server log tail.
@@ -674,10 +678,14 @@ the game is a deliberate manual copy, not an automated write (ADR-037).
 **Verification**
 
 - `integration/release` builds a `--no-runtime` release, validates its
-  structure and starts the copied server to reach `/api/health`.
+  structure including the root `.exe`, and starts the copied server to reach
+  `/api/health`.
 - Diagnostics reports all checks; logs endpoint returns bounded lines.
 - Release builder with a bundled runtime was exercised manually (Node runtime
   copied).
+- Launcher cleanup was exercised manually: a second server on port 8792 was
+  started by the `.exe`; terminating the launcher closed the server while the
+  unrelated process on 8791 continued.
 - No game files were modified.
 
 ---
@@ -746,6 +754,7 @@ animation/troop/scene editors.
 | 40 | Server log rotation uses one `.1` archive; no UI deletion | Low | Diagnostics view shows tail |
 | 41 | No live game deployment or automated installer | High | Intentional safety invariant |
 | 42 | Build diff remains byte/hash based | Low | Post-1.0 semantic diff |
+| 43 | Root `.exe` launcher uses .NET Framework 4, present on modern Windows but not embedded | Low | `.cmd` fallback included |
 
 ---
 
@@ -793,6 +802,7 @@ animation/troop/scene editors.
 | First run | Manual path if known-path detection misses | Improve install discovery |
 | Diagnostics | Log tail only; no export/viewer | Post-1.0 |
 | Deployment | Workspace handoff only | Separate installer phase if requested |
+| Launcher | Small .NET Framework 4 console executable | Replace with native/SEA launcher if needed |
 
 ---
 
@@ -846,6 +856,7 @@ animation/troop/scene editors.
 | ADR-044 | Portable release with optional bundled Node runtime | Accepted (Phase 10) |
 | ADR-045 | Diagnostics logs live under `cache/logs` with 1 MB rotation | Accepted (Phase 10) |
 | ADR-046 | First run opens the installation wizard automatically | Accepted (Phase 10) |
+| ADR-047 | Root `.exe` launcher owns the server through a Job Object | Accepted (Phase 10) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -907,12 +918,13 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-48 | Release server entrypoints and frontend work relative to the release root | release smoke test | **VERIFIED** | packaging |
 | F-49 | Diagnostics can verify Node version, installation, modules and writable roots without game writes | diagnostics API test | **VERIFIED** | Sistema view |
 | F-50 | First-run wizard removes the need for manual config editing | app flow | **VERIFIED** | setup |
+| F-51 | A Windows Job Object with kill-on-close reliably terminates the Node server when the launcher exits | launcher cleanup test on port 8792 | **VERIFIED** | launcher |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **115 / 115 passing** (~6.1 s), zero dependencies.
+**Command:** `npm test` - **115 / 115 passing** (~8.3 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|

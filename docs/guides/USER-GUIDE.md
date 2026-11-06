@@ -2,13 +2,18 @@
 
 ## 1. Start
 
-Run `WARBand Outfit Studio.cmd` from the repository or a release folder.
+Double-click **`WARBand Outfit Studio.exe`** in the project root or release
+folder. It starts the server, opens the browser and keeps the console window
+open. Closing that window stops the server and the Node process it started.
+
+`Warband Outfit Studio.cmd` remains available as a fallback launcher.
 
 - On first run, the installation wizard opens. Select the folder containing
   `mb_warband.exe` and `Modules`.
 - The app binds only to `127.0.0.1`.
-- A release with the bundled runtime does not require Node.js on the target PC.
-  A release without it uses `node` from `PATH`.
+- No npm packages are needed. A release with the bundled runtime does not
+  require Node.js on the target PC; a release without it uses `node` from
+  `PATH`.
 
 ## 2. First-run checklist
 

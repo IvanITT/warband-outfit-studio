@@ -23,15 +23,10 @@ and gives modders a safe place to inspect, validate and (in later phases) create
 
 ## Quick start
 
-```bat
-Warband Outfit Studio.cmd
-```
-
-or manually:
-
-```bat
-node backend\server\index.js --open
-```
+Double-click **`WARBand Outfit Studio.exe`** at the project root. It starts
+the local server, opens the browser and keeps the server in a Windows Job
+Object; closing the launcher window stops the server and its child processes.
+`Warband Outfit Studio.cmd` is kept as a source/fallback launcher.
 
 The server binds to `127.0.0.1:8791` (next free port if busy) and opens the UI.
 
