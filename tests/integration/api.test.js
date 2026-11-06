@@ -72,6 +72,14 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   assert.ok(geometry.arrays.positions.data.length > 100);
   assert.equal(geometry.arrays.positions.type, 'Float32Array');
 
+  const editableResponse = await fetch(`${base}/api/meshes/mail_shirt_a/editable?module=Native`);
+  const editable = await editableResponse.json();
+  assert.equal(editable.ok, true);
+  assert.equal(editable.rigged, true);
+  assert.equal(editable.frameCount, 2);
+  assert.equal(editable.arrays.vertexPosition.count, 782);
+  assert.equal(editable.source.mesh, 'mail_shirt_a');
+
   const textureResponse = await fetch(`${base}/api/textures/mail_shirt_a/raw?module=Native`);
   assert.equal(textureResponse.status, 200);
   assert.equal(textureResponse.headers.get('content-type'), 'application/octet-stream');

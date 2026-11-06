@@ -59,6 +59,7 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | `engine/resources/textureResolver.js` | Case-insensitive DDS discovery + page detection. | IMPLEMENTED |
 | `engine/resources/geometry.js` | Lazy mesh geometry (positions, rigging, frames, vertices, faces, bbox) with limits. | IMPLEMENTED |
 | `engine/resources/workspace.js` | Only write target: guarded paths, atomic writes, backups, SHA-256. | IMPLEMENTED |
+| `engine/resources/meshOverride.js` | Project mesh overrides: decode, validate, merge into a BRF. | IMPLEMENTED |
 | `engine/items/itemFlags.js` | Generated `itp_*` / `itcf_*` decoder. | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header parser. | IMPLEMENTED |
 | `engine/validation/*` | Rule catalogue + item chain validation. | IMPLEMENTED |
@@ -142,6 +143,10 @@ The cache is derived data and safe to delete.
 | GET | `/api/resources` | asset index (`type`, `q`, paging) |
 | GET | `/api/resources/:type/:name` | mesh/material/texture/shader detail + references |
 | GET | `/api/meshes/:name/geometry` | render-ready base64 typed arrays + bbox/counts |
+| GET | `/api/meshes/:name/editable` | editable model (shared positions, rigging, frames) |
+| GET/POST | `/api/projects/:id/meshes` | list/save mesh overrides |
+| GET/DELETE | `/api/projects/:id/meshes/:mesh` | load/delete an override |
+| POST | `/api/projects/:id/meshes/:mesh/export` | merge the override and write a workspace BRF |
 | GET | `/api/textures/:name/raw` | raw DDS bytes (binary response) |
 | GET | `/api/workspaces` | workspace list |
 | POST | `/api/workspaces` | create `{ label, module }` |

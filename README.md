@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 3 (current): 3D viewport — vendored Three.js, mesh rendering, orbit camera, client-side DDS preview.**
+- **Phase 4 (current): mesh editor — vertex/face selection, numeric transforms, topology operations, project overrides, workspace export.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -45,7 +45,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-81 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+96 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -77,6 +77,7 @@ backups/      automatic project backups
 - [Architecture](docs/architecture/ARCHITECTURE.md)
 - [Game & module manager](docs/architecture/MANAGER.md)
 - [3D viewport](docs/architecture/VIEWPORT.md)
+- [Mesh editor](docs/architecture/MESH-EDITOR.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF format](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
@@ -92,4 +93,4 @@ backups/      automatic project backups
 
 ## Status
 
-Phase 3 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 4 scope.
+Phase 4 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 5 scope.

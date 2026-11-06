@@ -161,6 +161,26 @@ position array. `engine.getMeshRenderData` expands positions/normals/UVs per
 vertex so the viewport can use the face array as `BufferGeometry.index`.
 Base64 keeps the JSON response compact.
 
+### 3.2 Editable mesh and project overrides
+
+```
+EditableModel
+  layout
+  positions            Float32Array (shared, x,y,z)
+  vertexPosition       Int32Array (render vertex → position)
+  normals, uvs         per render vertex
+  indices              Uint32Array (face triplet → render vertex)
+  color, tangent, textureIndex, uv2
+  rigging[]            { boneIndex, pairs[{vertexIndex, weight}] }
+  frames[]             { time, positions, normals }
+  dirty, topologyChanged
+```
+
+Overrides (`project.meshes[]`) store the same arrays as base64 plus
+`source { moduleId, mesh, brf }`, `layout`, `stats` and `editedAt`. The project
+references the original BRF; exporting merges the override and writes a copy in
+`workspace/`.
+
 ## 4. Resolved chain
 ```
 ItemChain

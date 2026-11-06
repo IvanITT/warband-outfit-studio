@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.4.0',
-        phase: 3,
+        version: '0.5.0',
+        phase: 4,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -154,6 +154,13 @@ export function createApi(engine) {
 
     /* ---- viewport data ---- */
 
+    const meshEditable = urlPath.match(/^\/api\/meshes\/(.+)\/editable$/);
+    if (method === 'GET' && meshEditable) {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.getMeshEditable(moduleId, decodeURIComponent(meshEditable[1]));
+      return { ok: true, module: moduleId, ...result };
+    }
+
     const meshGeometry = urlPath.match(/^\/api\/meshes\/(.+)\/geometry$/);
     if (method === 'GET' && meshGeometry) {
       const moduleId = query.get('module') ?? 'Native';
@@ -237,6 +244,49 @@ export function createApi(engine) {
 
     if (method === 'GET' && urlPath === '/api/projects') {
       return { ok: true, projects: await engine.projects.list() };
+    }
+
+    /* ---- project mesh overrides ---- */
+
+    const projectMeshes = urlPath.match(/^\/api\/projects\/([^/]+)\/meshes$/);
+    if (projectMeshes) {
+      const projectId = decodeURIComponent(projectMeshes[1]);
+      if (method === 'GET') {
+        return { ok: true, meshes: await engine.listMeshOverrides(projectId) };
+      }
+      if (method === 'POST') {
+        if (!body?.override) {
+          const error = new Error('Body must contain { override }');
+          // @ts-expect-error machine-readable
+          error.code = 'BAD_REQUEST';
+          throw error;
+        }
+        const override = await engine.saveMeshOverride(projectId, body.override);
+        return { ok: true, override };
+      }
+    }
+
+    const projectMesh = urlPath.match(/^\/api\/projects\/([^/]+)\/meshes\/([^/]+)$/);
+    if (projectMesh) {
+      const projectId = decodeURIComponent(projectMesh[1]);
+      const meshId = decodeURIComponent(projectMesh[2]);
+      if (method === 'GET') {
+        return { ok: true, override: await engine.getMeshOverride(projectId, meshId) };
+      }
+      if (method === 'DELETE') {
+        const result = await engine.removeMeshOverride(projectId, meshId, query.get('confirm') ?? '');
+        return { ok: true, ...result };
+      }
+    }
+
+    const projectMeshExport = urlPath.match(/^\/api\/projects\/([^/]+)\/meshes\/([^/]+)\/export$/);
+    if (method === 'POST' && projectMeshExport) {
+      const projectId = decodeURIComponent(projectMeshExport[1]);
+      const meshId = decodeURIComponent(projectMeshExport[2]);
+      const result = await engine.exportMeshOverride(projectId, meshId, {
+        workspaceLabel: body?.workspaceLabel,
+      });
+      return { ok: true, ...result };
     }
 
     if (method === 'POST' && urlPath === '/api/projects') {

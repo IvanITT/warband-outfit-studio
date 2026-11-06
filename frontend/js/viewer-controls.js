@@ -24,7 +24,11 @@ export class OrbitCamera {
 
     this.onPointerDown = (event) => {
       if (!this.enabled) return;
-      this.element.setPointerCapture(event.pointerId);
+      try {
+        this.element.setPointerCapture(event.pointerId);
+      } catch {
+        /* synthetic events may not have an active pointer */
+      }
       this.pointer = { id: event.pointerId, button: event.button };
       this.last = { x: event.clientX, y: event.clientY };
     };

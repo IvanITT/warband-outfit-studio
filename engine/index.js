@@ -18,6 +18,7 @@ import { createTextureResolver } from './resources/textureResolver.js';
 import { parseBrf, serializeBrf, updateMesh } from './resources/brf.js';
 import { readMeshGeometry } from './resources/geometry.js';
 import { resolveTextureDetails } from './resources/textureDetails.js';
+import { applyOverride, buildGeometryFromOverride } from './resources/meshOverride.js';
 import { WorkspaceStore } from './resources/workspace.js';
 import { parseDdsFile } from './textures/dds.js';
 import { resolveItemChain, validateItems } from './validation/validate.js';
@@ -663,6 +664,122 @@ export class WarbandEngine {
     }
     const buffer = await readFile(file);
     return { buffer, filePath: file, fileName: path.basename(file), name: hit.name };
+  }
+
+  /**
+   * Editable mesh data for Phase 4. Includes the raw position array and the
+   * per-vertex position index, plus rigging and every vertex attribute needed
+   * to rebuild the BRF.
+   *
+   * @param {string} moduleId
+   * @param {string} meshName
+   * @param {{ limits?: Partial<import('./resources/geometry.js').GeometryLimits> }} [options]
+   */
+  async getMeshEditable(moduleId, meshName, options = {}) {
+    const { mesh, geometry } = await this.getMeshGeometry(moduleId, meshName, options);
+    return {
+      mesh,
+      layout: geometry.layout,
+      uvFlip: 'v',
+      bbox: geometry.bbox,
+      counts: {
+        vertices: geometry.vertexCount,
+        faces: geometry.faceCount,
+        positions: geometry.positionCount,
+      },
+      frameCount: geometry.frames.length,
+      rigged: geometry.rigging.some((entry) => entry.pairs.length > 0),
+      arrays: {
+        positions: encodeTypedArray(geometry.positions),
+        vertexPosition: encodeTypedArray(geometry.vertices.index),
+        normals: encodeTypedArray(geometry.vertices.normal),
+        uvs: encodeTypedArray(geometry.vertices.uv),
+        indices: encodeTypedArray(geometry.faces),
+        color: encodeTypedArray(geometry.vertices.color),
+        tangent: geometry.vertices.tangent ? encodeTypedArray(geometry.vertices.tangent) : null,
+        textureIndex: geometry.vertices.textureIndex ? encodeTypedArray(geometry.vertices.textureIndex) : null,
+        uv2: geometry.vertices.uv2 ? encodeTypedArray(geometry.vertices.uv2) : null,
+      },
+      rigging: geometry.rigging,
+      frames: geometry.frames.map((frame) => ({
+        time: frame.time,
+        positions: encodeTypedArray(frame.positions),
+        normals: encodeTypedArray(frame.normals),
+      })),
+      source: { moduleId, mesh: mesh.name, brf: mesh.brf },
+    };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Mesh overrides (Phase 4)                                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * @param {string} projectId
+   * @param {any} override
+   */
+  async saveMeshOverride(projectId, override) {
+    const { issues } = buildGeometryFromOverride(override);
+    if (issues.length > 0) {
+      const error = new Error(`Override is invalid: ${issues.join('; ')}`);
+      // @ts-expect-error machine-readable
+      error.code = 'INVALID_OVERRIDE';
+      throw error;
+    }
+    return this.projects.saveMeshOverride(projectId, override);
+  }
+
+  /** @param {string} projectId */
+  async listMeshOverrides(projectId) {
+    return this.projects.listMeshOverrides(projectId);
+  }
+
+  /** @param {string} projectId @param {string} meshId */
+  async getMeshOverride(projectId, meshId) {
+    return this.projects.getMeshOverride(projectId, meshId);
+  }
+
+  /** @param {string} projectId @param {string} meshId @param {string} confirm */
+  async removeMeshOverride(projectId, meshId, confirm) {
+    return this.projects.removeMeshOverride(projectId, meshId, confirm);
+  }
+
+  /**
+   * Merge an override into a copy of its source BRF and write it to a
+   * workspace. The installation is only read.
+   * @param {string} projectId
+   * @param {string} meshId
+   * @param {{ workspaceLabel?: string }} [options]
+   */
+  async exportMeshOverride(projectId, meshId, options = {}) {
+    const installation = this.requireInstallation();
+    const override = await this.projects.getMeshOverride(projectId, meshId);
+    const sourcePath = path.resolve(override.source.brf);
+    const root = path.resolve(installation.rootPath);
+    if (sourcePath !== root && !sourcePath.startsWith(root + path.sep)) {
+      const error = new Error('Override source BRF must be inside the Warband installation.');
+      // @ts-expect-error machine-readable
+      error.code = 'PATH_OUTSIDE_INSTALLATION';
+      throw error;
+    }
+
+    const source = await readFile(sourcePath);
+    const { buffer, mesh } = applyOverride(source, override, { file: sourcePath });
+    const workspace = await this.createWorkspace(options.workspaceLabel ?? 'mesh-edits', {
+      reuse: true,
+      moduleId: override.source.moduleId,
+    });
+    const fileName = `${mesh.name.replace(/[^A-Za-z0-9._-]+/g, '_')}.brf`;
+    const result = await this.workspaces.writeFile(workspace.id, fileName, buffer);
+    return {
+      ...result,
+      workspaceId: workspace.id,
+      sourceBrf: sourcePath,
+      mesh: mesh.name,
+      bytes: buffer.length,
+      vertices: mesh.vertexCount,
+      faces: mesh.faceCount,
+    };
   }
 
   /* ---------------------------------------------------------------- */

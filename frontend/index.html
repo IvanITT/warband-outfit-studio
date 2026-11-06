@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.4.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.5.0" />
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 3</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 4</p>
         </div>
       </div>
 
@@ -172,6 +172,51 @@
           </div>
           <div id="viewer-status" class="viewer-status">Arrastra para orbitar · rueda para zoom · botón derecho para desplazar.</div>
         </div>
+        <div class="viewer-editbar">
+          <div class="edit-row">
+            <span class="edit-label">Selección</span>
+            <button id="edit-mode-vertex" class="ghost small is-active" type="button">Vértices</button>
+            <button id="edit-mode-face" class="ghost small" type="button">Caras</button>
+            <span id="edit-selection" class="edit-count">0 seleccionados</span>
+            <span id="edit-message" class="edit-message"></span>
+          </div>
+          <div class="edit-row">
+            <select id="edit-transform" title="Transformación">
+              <option value="translate">Mover</option>
+              <option value="rotate">Rotar</option>
+              <option value="scale">Escalar</option>
+            </select>
+            <select id="edit-axis" title="Eje">
+              <option value="x">X</option>
+              <option value="y">Y</option>
+              <option value="z">Z</option>
+              <option value="normal">Normal</option>
+            </select>
+            <label class="edit-check"><input id="edit-local" type="checkbox" /> Local</label>
+            <input id="edit-amount" type="number" value="0.05" step="0.01" title="Cantidad" />
+            <input id="edit-step" type="number" value="0.01" step="0.01" title="Snap" />
+            <button id="edit-apply" class="primary" type="button">Aplicar</button>
+          </div>
+          <div class="edit-row">
+            <button id="edit-delete" class="ghost small" type="button">Borrar caras</button>
+            <button id="edit-duplicate" class="ghost small" type="button">Duplicar</button>
+            <button id="edit-mirror" class="ghost small" type="button">Espejo X</button>
+            <button id="edit-extrude" class="ghost small" type="button">Extruir</button>
+            <button id="edit-merge" class="ghost small" type="button">Fusionar</button>
+            <button id="edit-split" class="ghost small" type="button">Separar</button>
+            <span class="edit-sep"></span>
+            <button id="edit-undo" class="ghost small" type="button">Deshacer</button>
+            <button id="edit-redo" class="ghost small" type="button">Rehacer</button>
+            <button id="edit-reset" class="ghost small" type="button">Restablecer</button>
+          </div>
+          <div class="edit-row">
+            <select id="viewer-project" title="Proyecto"><option value="">— Proyecto —</option></select>
+            <button id="viewer-project-new" class="ghost small" type="button">Nuevo</button>
+            <button id="viewer-save" class="ghost small" type="button">Guardar malla</button>
+            <button id="viewer-load" class="ghost small" type="button">Cargar</button>
+            <button id="viewer-export" class="primary" type="button">Exportar a workspace</button>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -204,7 +249,7 @@
     <footer class="statusbar">
       <span id="status-text">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 3 · 3D Viewport</span>
+      <span class="status-meta">Fase 4 · Mesh Editor</span>
     </footer>
   </div>
 
@@ -231,6 +276,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.4.0"></script>
+  <script type="module" src="/js/app.js?v=0.5.0"></script>
 </body>
 </html>

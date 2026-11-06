@@ -418,3 +418,72 @@ New suites:
 ### Milestone
 
 Tag `phase-3-viewport`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 4 — Mesh Editor
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Edit real Warband meshes in the viewport, preserve BRF compatibility (shared positions, rigging, UV seams, animation frames), store edits as project overrides and export them to a workspace copy.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Editable model | shared positions + `vertexPosition`, normals/UVs/indices, colour/tangent/uv2, rigging, animation frames |
+| Selection | vertex/face raycast picking, shift multi-select, overlay points/faces |
+| Transforms | move/rotate/scale, X/Y/Z/Normal, local axis, numeric input, snapping; frame positions/normals updated |
+| Topology | delete, duplicate, mirror X, per-face extrude, merge, split |
+| Guards | count-changing topology blocked on rigged/framed meshes (ADR-026) |
+| History | 25 snapshots, undo/redo, reset |
+| Overrides | project `meshes[]` with base64 arrays; save/load/delete; validation |
+| Export | merge override into the source BRF; write `workspace/mesh-edits/<mesh>.brf` |
+| API | editable mesh, project overrides, export |
+| UI | Visor edit toolbar + project controls |
+
+### Tests
+
+`npm test` → **96 / 96 passing** (~4.8 s).
+
+New suites:
+
+- `unit/meshEdit` (13): transforms/snapping, topology, rigged guard, mirror/extrude/merge/split, validation, override round-trip.
+- `integration/meshOverride` (2): real edit → override → export, frame preservation, invalid override rejection.
+- `integration/api` extended: editable endpoint.
+
+### Verified against real data
+
+- `mail_shirt_a` (rigged, 2 animation frames): translated one selected vertex.
+- Export diff vs source: **1 bind position** and **1 frame position** changed; frames preserved; vertex/face counts unchanged; source SHA-256 unchanged.
+- UI flow verified: select vertex → apply transform → save override → export; screenshot captured.
+
+### Findings
+
+1. **Frames are per-position and per-vertex**: frame positions index positions (622), frame normals index vertices (782). Transforms must update both (F-23).
+2. **Shared positions must be moved once**: many render vertices share a position; transforms deduplicate by `vertexPosition` (F-24).
+3. **Count-changing topology cannot preserve rigging/frames**: blocked with explicit errors; delete/merge/transforms remain available.
+
+### Known limitations
+
+- No edge loops; vertex + face selection only (approved).
+- Extrude is per-face (internal walls on adjacent faces).
+- No UV or weight editing.
+- Overrides store a full geometry snapshot.
+- Meshes with frames allow transforms only.
+- No link to outfit/item projects yet.
+- No project diff/merge UI.
+
+### Documentation updated
+
+- New `docs/architecture/MESH-EDITOR.md` (with screenshot).
+- `PROJECT_PLAN.md` (Phase 4 complete, Phase 5 proposed, ADR-024…026, findings, tests).
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`, `docs/development/{DECISIONS,SETUP}.md`,
+  `README.md`.
+
+### Milestone
+
+Tag `phase-4-mesh-editor`. No game files were modified. `npm test` green.

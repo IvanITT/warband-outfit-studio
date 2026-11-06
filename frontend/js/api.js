@@ -73,6 +73,9 @@ export const api = {
   meshGeometry: (module, name) => request(
     `/api/meshes/${encodeURIComponent(name)}/geometry?module=${encodeURIComponent(module)}`,
   ),
+  meshEditable: (module, name) => request(
+    `/api/meshes/${encodeURIComponent(name)}/editable?module=${encodeURIComponent(module)}`,
+  ),
   textureBuffer: async (module, name) => {
     const response = await fetch(
       `/api/textures/${encodeURIComponent(name)}/raw?module=${encodeURIComponent(module)}`,
@@ -89,8 +92,25 @@ export const api = {
   },
 
   /* backups */
-  backups: () => request('/api/backups'),
-  restoreBackup: (body) => request('/api/backups/restore', { method: 'POST', body }),
+  backups: () => request('/api/backups'),  restoreBackup: (body) => request('/api/backups/restore', { method: 'POST', body }),
+
+  /* project mesh overrides */
+  meshOverrides: (projectId) => request(`/api/projects/${encodeURIComponent(projectId)}/meshes`),
+  meshOverride: (projectId, meshId) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/meshes/${encodeURIComponent(meshId)}`,
+  ),
+  saveMeshOverride: (projectId, override) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/meshes`,
+    { method: 'POST', body: { override } },
+  ),
+  removeMeshOverride: (projectId, meshId, confirm) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/meshes/${encodeURIComponent(meshId)}?confirm=${encodeURIComponent(confirm)}`,
+    { method: 'DELETE' },
+  ),
+  exportMeshOverride: (projectId, meshId, workspaceLabel) => request(
+    `/api/projects/${encodeURIComponent(projectId)}/meshes/${encodeURIComponent(meshId)}/export`,
+    { method: 'POST', body: { workspaceLabel } },
+  ),
 
   /* workspaces */
   workspaces: () => request('/api/workspaces'),

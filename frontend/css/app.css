@@ -764,3 +764,38 @@ input[type="search"]::placeholder { color: var(--text-dim); }
 .viewer-view { grid-template-rows: minmax(0, 1fr); }
 .viewer-side { height: 100%; }
 .viewer-stage { height: 100%; }
+
+/* ---------- viewer editor ---------- */
+
+.viewer-editbar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(13, 16, 20, 0.88);
+  backdrop-filter: blur(6px);
+}
+.edit-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.edit-row select, .edit-row input[type="number"] {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.edit-row input[type="number"] { width: 68px; }
+.edit-row .primary { width: auto; padding: 5px 10px; font-size: 11px; }
+.edit-row .ghost.small { padding: 4px 8px; }
+.edit-row .ghost.is-active { color: var(--accent-strong); border-color: rgba(216, 162, 74, 0.55); }
+.edit-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
+.edit-check { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--text-dim); }
+.edit-count { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); }
+.edit-message { font-family: var(--mono); font-size: 10.5px; color: var(--accent); margin-left: auto; }
+.edit-sep { width: 1px; height: 16px; background: var(--border-strong); margin: 0 4px; }

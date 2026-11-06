@@ -56,6 +56,8 @@ function statusFor(code) {
     case 'INVALID_INSTALLATION':
     case 'CONFIRMATION_REQUIRED':
     case 'PATH_OUTSIDE_BACKUP':
+    case 'INVALID_OVERRIDE':
+    case 'LAYOUT_MISMATCH':
       return 400;
     case 'BACKUP_CORRUPT':
       return 409;
@@ -67,6 +69,7 @@ function statusFor(code) {
     case 'MATERIAL_NOT_FOUND':
     case 'TEXTURE_NOT_FOUND':
     case 'SHADER_NOT_FOUND':
+    case 'MESH_OVERRIDE_NOT_FOUND':
       return 404;
     case 'INSTALLATION_NOT_FOUND':
       return 503;
@@ -201,7 +204,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const started = await startServer();
   console.log('');
-  console.log('  WARBand Outfit Studio — Phase 3');
+  console.log('  WARBand Outfit Studio — Phase 4');
   console.log(`  ${started.url}`);
   if (!started.engine.installation) {
     console.log('  WARNING: no Warband installation detected. See /api/status for candidates.');

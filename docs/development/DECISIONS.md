@@ -215,3 +215,42 @@ controls are ~100 lines, fully local, and sufficient for inspection.
 **Consequences:** no damping/inertia or touch gestures yet; add them if the
 viewport becomes a primary workflow.
 
+
+
+## ADR-024 — Edit shared positions, not a triangle soup
+
+**Decision:** the editable model keeps the BRF position array and a
+`vertexPosition` indirection; transforms move shared positions, faces index
+render vertices.
+
+**Rationale:** this preserves UV seams, rigging indices and the original
+topology while still allowing per-vertex selection. Rebuilding a flat triangle
+mesh would duplicate positions and break rigging.
+
+**Consequences:** moving one vertex moves every UV seam that shares the position
+(same as position editing in OpenBRF). Topology operations add positions and
+remap explicitly.
+
+## ADR-025 — Project overrides, not edited game files
+
+**Decision:** edits are stored as project overrides that reference the source
+BRF; export merges the override into a copy under `workspace/`.
+
+**Rationale:** ?10 safety. The installation is never written; projects can be
+versioned/backed up like any other project data.
+
+**Consequences:** overrides carry a full geometry snapshot (base64). A delta
+format is a future optimization; export currently writes one changed mesh per
+BRF copy.
+
+## ADR-026 — Block vertex-count topology on rigged/framed meshes
+
+**Decision:** duplicate/mirror/extrude/split are rejected on meshes with rigging
+or vertex-animation frames; delete/merge and transforms remain available.
+
+**Rationale:** rigging weights reference position indices and frames store
+per-position data. Without weight/frame editing, changing counts would corrupt
+the asset. This is safer than silently dropping data.
+
+**Consequences:** Phase 5 (weights) can lift the rigging restriction; frame
+topology stays blocked until frame editing exists.

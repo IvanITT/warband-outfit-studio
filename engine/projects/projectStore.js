@@ -25,6 +25,7 @@ export const PROJECT_SCHEMA_VERSION = 1;
  * @property {{id:string,kind:'mesh'|'material'|'texture'|'item',name:string,notes:string}[]} assets
  * @property {{id:string,baseItemId:string,notes:string,overrides:Record<string,unknown>}[]} items
  * @property {{id:string,name:string,slot:string,itemIds:string[]}[]} outfits
+ * @property {any[]} meshes
  * @property {{lastRunAt:string|null,summary:{errors:number,warnings:number,infos:number}} } validation
  * @property {string} notes
  */
@@ -111,6 +112,7 @@ export class ProjectStore {
       assets: [],
       items: [],
       outfits: [],
+      meshes: [],
       validation: { lastRunAt: null, summary: { errors: 0, warnings: 0, infos: 0 } },
       notes: input.notes ?? '',
     };
@@ -129,6 +131,7 @@ export class ProjectStore {
       throw new Error(`Unsupported project schema ${project.schemaVersion}`);
     }
     if (project.id !== id) throw new Error('Project id does not match its file name');
+    project.meshes = project.meshes ?? [];
     return project;
   }
 
@@ -149,11 +152,85 @@ export class ProjectStore {
     return project;
   }
 
+  /* ---------------------------------------------------------------- */
+  /* Mesh overrides (Phase 4)                                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Save or replace a mesh override in a project.
+   * @param {string} projectId
+   * @param {any} override
+   */
+  async saveMeshOverride(projectId, override) {
+    if (!override?.id || !override?.source?.mesh) {
+      throw new Error('Override must contain id and source.mesh');
+    }
+    const project = await this.load(projectId);
+    const index = project.meshes.findIndex((entry) => entry.id === override.id);
+    if (index >= 0) project.meshes[index] = override;
+    else project.meshes.push(override);
+    project.updatedAt = new Date().toISOString();
+    await this.save(project);
+    return override;
+  }
+
+  /** @param {string} projectId */
+  async listMeshOverrides(projectId) {
+    const project = await this.load(projectId);
+    return project.meshes.map((entry) => ({
+      id: entry.id,
+      source: entry.source,
+      layout: entry.layout,
+      editedAt: entry.editedAt,
+      stats: entry.stats,
+    }));
+  }
+
+  /**
+   * @param {string} projectId
+   * @param {string} meshId
+   */
+  async getMeshOverride(projectId, meshId) {
+    const project = await this.load(projectId);
+    const override = project.meshes.find((entry) => entry.id === meshId);
+    if (!override) {
+      const error = new Error(`Mesh override '${meshId}' was not found in project '${projectId}'.`);
+      // @ts-expect-error machine-readable
+      error.code = 'MESH_OVERRIDE_NOT_FOUND';
+      throw error;
+    }
+    return override;
+  }
+
+  /**
+   * @param {string} projectId
+   * @param {string} meshId
+   * @param {string} confirm Must equal the mesh id.
+   */
+  async removeMeshOverride(projectId, meshId, confirm) {
+    if (confirm !== meshId) {
+      const error = new Error('Confirmation required: pass the mesh id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const project = await this.load(projectId);
+    const before = project.meshes.length;
+    project.meshes = project.meshes.filter((entry) => entry.id !== meshId);
+    if (project.meshes.length === before) {
+      const error = new Error(`Mesh override '${meshId}' was not found.`);
+      // @ts-expect-error machine-readable
+      error.code = 'MESH_OVERRIDE_NOT_FOUND';
+      throw error;
+    }
+    await this.save(project);
+    return { removed: meshId };
+  }
+
   /**
    * @param {string} sourceFile
    * @param {string} destinationFile
-   */
-  async copyRaw(sourceFile, destinationFile) {
+   */  async copyRaw(sourceFile, destinationFile) {
     await ensureDir(path.dirname(destinationFile));
     await copyFile(sourceFile, destinationFile);
   }

@@ -59,6 +59,21 @@ Open the **Visor** tab, search a mesh (e.g. `mail_shirt_a`) and select it.
 - Three.js is vendored at `frontend/vendor/three/` (0.169.0, MIT) — no network
   is used at runtime.
 
+## Mesh editor
+
+In the Visor tab, below the mesh:
+
+- **Selección**: Vértices / Caras; click to select, Shift adds.
+- **Transformar**: move/rotate/scale, axis X/Y/Z/Normal, Local, amount + snap,
+  **Aplicar**.
+- **Topología**: borrar, duplicar, espejo, extruir, fusionar, separar.
+- **Deshacer / Rehacer / Restablecer**.
+- **Proyecto**: crea o elige uno, **Guardar malla**, **Cargar**, **Exportar a
+  workspace**.
+
+Rigged meshes and meshes with animation frames block topology operations that
+change the vertex count; transforms are allowed.
+
 ## Tests
 
 ```bat
@@ -71,7 +86,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 3 result: **81 passing**.
+Expected Phase 4 result: **96 passing**.
 
 ## CLI tools
 
@@ -144,6 +159,8 @@ config/profiles.json  local installation profiles (created on first run)
 | Asset index API | `engine/index.js` (`listResources`, `getResourceDetail`) |
 | Backup API | `projectStore.listBackups/restoreBackup`, `workspace.listBackups/restoreBackup` |
 | 3D viewer | `frontend/js/viewer.js`, `viewer-controls.js`, `dds.js` |
+| Mesh editor operations | `frontend/js/mesh-edit.js` |
+| Override persistence/export | `engine/resources/meshOverride.js`, `projectStore.saveMeshOverride` |
 | Viewport data API | `engine.getMeshRenderData`, `engine.getTextureFile` |
 | Vendored Three.js | `frontend/vendor/three/` (0.169.0, MIT) |
 | HTTP routes | `backend/api/routes.js` |

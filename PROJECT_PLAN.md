@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 3 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 4**
+> Current phase: **Phase 4 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 5**
 
 ---
 
@@ -128,6 +128,7 @@ Implemented engine modules:
 | `engine/resources/brf.js` | BRF token-stream parser + writer (raw-range copy, dirty objects) | IMPLEMENTED |
 | `engine/resources/geometry.js` | lazy mesh geometry with allocation limits | IMPLEMENTED |
 | `engine/resources/workspace.js` | workspace-only writes, backups, SHA-256 | IMPLEMENTED |
+| `engine/resources/meshOverride.js` | project mesh overrides, validation, BRF merge | IMPLEMENTED |
 | `engine/resources/brfIndex.js` | cross-file index + persistent cache | IMPLEMENTED |
 | `engine/resources/textureResolver.js` | DDS discovery | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header | IMPLEMENTED |
@@ -268,11 +269,21 @@ Completed:
 
 **Exit met:** real `mail_shirt_a` (782 verts / 1,240 faces, 1024×1024 DXT1) renders at 60 fps in the browser, no console errors; screenshot verified.
 
-### Phase 4 — Mesh Editor
+### Phase 4 — Mesh Editor — **COMPLETE (2026-11-06)**
 
-- Vertex/face selection, move/rotate/scale, duplicate/delete/merge/split/mirror, basic extrude.
-- Warband-compatible geometry constraints; undo history where practical.
-- **Exit:** edited mesh survives export and validates.
+Completed:
+
+- Editable model preserving shared positions, `vertexPosition`, normals/UVs, indices, rigging and animation frames.
+- Vertex/face selection with raycast, multi-select and overlays.
+- Move/rotate/scale with axis X/Y/Z/Normal, local mode, numeric input and snapping; transforms update bind pose and frames.
+- Topology: delete, duplicate, mirror X, extrude, merge, split.
+- Guards: vertex-count topology blocked on rigged/framed meshes; transforms allowed (ADR-026).
+- Undo/redo (25 snapshots), reset to original.
+- Project overrides (`project.meshes[]`), save/load, validation, and export merged into `workspace/mesh-edits/`.
+- Visor edit toolbar; "Ver en visor 3D" integration.
+- 96 automated tests.
+
+**Exit met:** a real `mail_shirt_a` edit changes exactly one position + its frame position, preserves frames/counts, round-trips through the BRF writer, and leaves the source hash unchanged.
 
 ### Phase 5 — Texture & Material System
 
@@ -313,9 +324,9 @@ Completed:
 
 ## 9. Current Phase
 
-**Phase 3 is COMPLETE.** All Phase 3 deliverables are implemented, tested and documented.
+**Phase 4 is COMPLETE.** All Phase 4 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 4.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 5.
 
 ### Roadmap reconciliation (accepted)
 
@@ -331,6 +342,7 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 - **Phase 1** targeted the **unfinished** Resource Engine work: geometry, BRF writing, symbolic item flags, mutation APIs and corpus tests. **Done.**
 - **Phase 2** targeted the **unfinished** manager work: profiles, workspace lifecycle, asset index UI, backup catalogue/restore. **Done.**
 - **Phase 3** delivered the local viewport: vendored Three.js, render data, DDS preview, camera and toggles. **Done.**
+- **Phase 4** delivered mesh editing: selection, transforms, topology, history, project overrides and workspace export. **Done.**
 - No earlier deliverable was re-implemented.
 
 ---
@@ -454,55 +466,78 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 - Real render: `mail_shirt_a`, 782 vertices / 1,240 faces, 1024×1024 DXT1, **60 fps** (vsync), screenshot checked.
 - No console errors; “Ver en visor 3D” works from the asset index.
 
+### Phase 4 (2026-11-06)
+
+**Editor**
+
+- `frontend/js/mesh-edit.js`: editable model (shared positions + vertexPosition, normals/UVs/indices, attributes, rigging, frames), selection, transforms, topology, validation, override encode/decode.
+- Vertex/face picking with shift multi-select and overlays; transforms with X/Y/Z/Normal, local axis, snapping.
+- Topology: delete, duplicate, mirror X, per-face extrude, merge, split; vertex-count changes blocked on rigged/framed meshes.
+- History: 25 snapshots, undo/redo/reset.
+
+**Persistence/export**
+
+- Project `meshes[]` overrides with base64 typed arrays; engine validation; save/load/delete.
+- `engine.exportMeshOverride` merges the override into the source BRF and writes `workspace/mesh-edits/<mesh>.brf` (atomic + backup + hash).
+- New API: editable mesh, project mesh overrides, export.
+
+**Verification**
+
+- 96/96 tests in ~4.8 s (mesh edit unit suite + real override/export integration + API).
+- Real edit: exactly 1 position + 1 frame position changed; frames preserved; vertex/face counts unchanged; source SHA-256 unchanged.
+- UI verified end to end: select vertex → translate → save override → export; screenshot captured.
+
 ---
 
 ## 11. Pending Work
 
-### Phase 4 (proposed, not authorized)
+### Phase 5 (proposed, not authorized)
 
-1. **Selection model** — vertex/face/edge selection on top of the viewport geometry; hover/click picking, multi-select, selection overlay.
-2. **Transform tools** — move/rotate/scale with numeric input and snapping; world/local axes.
-3. **Topology operations** — duplicate, delete, merge, split, mirror; basic extrude; recompute normals where required.
-4. **Warband constraints** — preserve vertex layout, face winding, rigging indices and UV seams; reject operations that cannot serialize.
-5. **History** — undo/redo for edits (bounded memory), reset to original.
-6. **Projects** — persist mesh edits as project overrides referencing the base mesh; save/load.
-7. **Validation** — edited mesh still passes geometry/serialization checks; writer round-trip.
-8. **Tests/docs** — unit tests for topology ops, integration for save/load and serialization.
+1. **Texture pipeline** — DDS decode beyond the viewport: list pages, alpha/mip awareness, texture import into a workspace and material assignment.
+2. **Material model** — create/edit materials (shader, diffuse/bump/spec/enviro, colour/specular/flags) with the BRF writer.
+3. **Material preview** — normal/spec channels in the viewport (normal map approximation), alpha blending modes.
+4. **Shader awareness** — select from shaders present in loaded BRFs; warn on unknown shaders.
+5. **Texture assignment** — attach a texture to a material/mesh, validate existence and dimensions.
+6. **Overrides** — project texture/material overrides referencing base assets; export merged BRF copies.
+7. **Tests/docs** — DDS variants, material round-trip, preview checklist.
 
-### Explicitly out of Phase 4
+### Explicitly out of Phase 5
 
-Texture/material authoring, outfit composition, item editing, deployment.
+Outfit composition, item editing, deployment.
 
 ### Decisions requested with this approval
 
-1. **Selection granularity**: vertex + face (simpler, proposed) vs also edge loops.
-2. **Mesh storage**: store only a delta/override against the base mesh (proposed) vs copy the full mesh into the project.
-3. **Rigging preservation**: forbid topology edits that change vertex count on rigged meshes until weight editing exists (proposed), or interpolate weights.
+1. **Texture storage**: copy imported textures into `workspace/` (proposed) vs reference arbitrary local paths.
+2. **DDS scope**: DXT1/3/5 + BC1–3 first (proposed) vs add BC4–7 and mipmaps now.
+3. **Normal preview**: tangent-space approximation with a toggle (proposed) vs physically accurate without tangents (impossible for layout 2).
 
-### Backlog after Phase 4
+### Backlog after Phase 5
 
-- Phase 5: textures/materials; Phase 6: outfit editor; Phase 7: item editor; Phase 8: exporter; Phase 9: hardening; Phase 10: packaging.
+- Phase 6: outfit editor; Phase 7: item editor; Phase 8: exporter; Phase 9: hardening; Phase 10: packaging.
 
 ---
 
-## 12. Known Issues (after Phase 3)
+## 12. Known Issues (after Phase 4)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
 | 1 | The outfit view is read-only; project item editing is not implemented | High | Planned Phase 6–7 |
 | 2 | Dirty animations and collision bodies cannot be written | Medium | Preserved verbatim; writer throws if marked dirty |
 | 3 | Adding/removing BRF objects (section count changes) is not exposed | Medium | Phase 8 (builder) |
-| 4 | Viewport renders the bind pose only (no skinning/skeleton pose) | Medium | Phase 4/6 |
+| 4 | Viewport renders the bind pose only (no skinning/skeleton pose) | Medium | Phase 6 |
 | 5 | Only the diffuse map is previewed (no normal/spec) | Medium | Phase 5 |
-| 6 | UV V flip is LIKELY (OpenBRF convention); toggle available | Low | Documented; verify with a controlled texture |
-| 7 | Geometry is re-read from disk on every viewport selection | Low | LRU cache if it hurts |
-| 8 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Controlled experiment |
-| 9 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
-| 10 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
-| 11 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
-| 12 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
-| 13 | Asset index and visor list LOD/piece meshes as separate rows | Low | Grouping toggle |
-| 14 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
+| 6 | Mesh topology changes are blocked on rigged/framed meshes | Medium | Phase 5 (weights) |
+| 7 | Extrude is per-face; adjacent faces keep internal walls | Low | Improve in Phase 4 follow-up |
+| 8 | Overrides store a full geometry snapshot, not a delta | Low | Optimize if projects grow |
+| 9 | No UV or bone-weight editing yet | Medium | Phase 5 |
+| 10 | UV V flip is LIKELY (OpenBRF convention); toggle available | Low | Controlled experiment |
+| 11 | Geometry is re-read on every viewport selection | Low | LRU if it hurts |
+| 12 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Controlled experiment |
+| 13 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
+| 14 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
+| 15 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
+| 16 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
+| 17 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
 
 ---
 
@@ -520,6 +555,11 @@ Texture/material authoring, outfit composition, item editing, deployment.
 | DDS decoder | First mip only; DXT1/3/5 + BC1-3; no BC4-7/mipmaps | Extend in Phase 5 |
 | Viewport controls | Custom orbit controls without inertia/touch pinch | Add in Phase 4 if needed |
 | Viewport tests | DOM/screenshot verification; no automated WebGL assertion | Add a render smoke test in Phase 9 |
+| Mesh history | Full model snapshots (25 max) | Delta/undo journal if memory matters |
+| Mesh overrides | Full geometry snapshot per edited mesh | Delta format if projects grow |
+| Extrude | Per-face implementation (internal walls on adjacent faces) | Region extrude in a Phase 4 follow-up |
+| Selection | Vertex + face only (approved); no edge loops | Revisit with UV editing |
+| Rigged/framed meshes | Count-changing topology blocked | Phase 5 weights |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
 | Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
 | Backups | No pruning/retention policy (ADR-020) | Phase 9 |
@@ -556,6 +596,9 @@ Texture/material authoring, outfit composition, item editing, deployment.
 | ADR-021 | Vendor Three.js 0.169.0 locally; no CDN | Accepted (Phase 3) |
 | ADR-022 | Decode DDS in the browser (DXT1/3/5) | Accepted (Phase 3) |
 | ADR-023 | Custom orbit controls instead of the addon/import map | Accepted (Phase 3) |
+| ADR-024 | Edit shared positions via vertexPosition indirection | Accepted (Phase 4) |
+| ADR-025 | Mesh edits are project overrides; export writes workspace copies | Accepted (Phase 4) |
+| ADR-026 | Block count-changing topology on rigged/framed meshes | Accepted (Phase 4) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -589,12 +632,14 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | F-20 | Some item capability bits are not in `header_items.py` | `itm_no_item` bit 63 | **UNKNOWN** | reported as `unknownHex` |
 | F-21 | BRF faces index the **vertex list**; each vertex stores an index into the position array | `mail_shirt_a`: 782 verts, 622 positions, max face index 781 | **VERIFIED** | `getMeshRenderData` expands per vertex |
 | F-22 | DDS textures are top-down rows; UV V needs the OpenBRF flip for GL display | real texture renders correctly with `v'=1-v` | **LIKELY** | viewport default + toggle |
+| F-23 | BRF rigging pairs reference **position** indices; frames store positions per position and normals per vertex | `mail_shirt_a`: 622 positions, 782 verts, 2 frames | **VERIFIED** | edit model + override export |
+| F-24 | Editing a shared position must move it once, not once per UV seam | duplicate vertex indices share position indices | **VERIFIED** | dedupe by `vertexPosition` in transforms |
 
 ---
 
 ## 16. Testing Status
 
-**Command:** `npm test` - **81 / 81 passing** (~4.4 s), zero dependencies.
+**Command:** `npm test` - **96 / 96 passing** (~4.8 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -614,6 +659,8 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `integration/resources` | 6 | lists, mesh/material/texture/shader details, references, structured 404 |
 | `integration/pipeline` | 7 | installation, Native counts, chain + flags, composed mesh, batch validation, all modules |
 | `unit/ddsDecode` | 4 | DXT1 4-colour/transparent, DXT5 alpha, bad magic |
+| `unit/meshEdit` | 13 | transforms, snapping, topology, guards, overrides, validation |
+| `integration/meshOverride` | 2 | real edit/override/export, frame preservation, invalid override |
 | `integration/renderdata` | 3 | per-vertex expansion, raw DDS bytes, missing texture code |
 | `integration/api` | 2 | profiles, resources, geometry, texture bytes, workspaces, backups, projects, CSP, static, 404 |
 
@@ -624,6 +671,17 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 - Phase 4 completed
+
+- **Mesh editor**: editable model, vertex/face selection, numeric transforms, topology operations, undo/redo/reset.
+- **Warband constraints**: shared positions preserved; rigged/framed meshes block count-changing topology.
+- **Overrides**: project mesh overrides, validation, save/load/delete, export merged into workspace BRFs.
+- **UI**: Visor edit toolbar and project controls.
+- **Tests**: 96 passing (mesh edit unit suite + real override/export integration).
+- Docs: `docs/architecture/MESH-EDITOR.md`, data model/architecture/ADR-024..026.
+- Milestone tag: `phase-4-mesh-editor`.
+
 
 ### 2026-11-06 - Phase 3 completed
 
@@ -684,28 +742,28 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 4 — Mesh Editor** (proposed; requires explicit approval).
+**Phase 5 — Texture & Material System** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Selection | vertex/face picking, multi-select, overlay | selectable on the real mesh |
-| Transform | move/rotate/scale with axes + numeric input | edits match input and survive serialization |
-| Topology | duplicate/delete/merge/split/mirror, basic extrude | operations validate on real meshes |
-| Warband constraints | layout/rigging/UV seam preservation | no invalid geometry reaches the writer |
-| History | bounded undo/redo, reset | edits are reversible |
-| Projects | mesh overrides saved/loaded | reopen reproduces the edited mesh |
-| Tests/docs | topology unit tests + serialization integration | green and documented |
+| Texture pipeline | DDS variants, pages, alpha/mip awareness | real textures decode and preview |
+| Material model | create/edit shader, maps, colour, flags | material round-trips through the BRF writer |
+| Material preview | normal/spec approximation + alpha | visually verifiable on armour |
+| Shader awareness | shader list + unknown warnings | no silent fallbacks |
+| Texture assignment | attach/validate textures | missing files are caught before export |
+| Overrides | project material/texture overrides | export merges into workspace |
+| Tests/docs | DDS variants + material round-trip | green and documented |
 
-### Explicitly out of Phase 4
+### Explicitly out of Phase 5
 
-Texture/material authoring, outfit composition, item editing, deployment.
+Outfit composition, item editing, deployment.
 
 ### Decisions requested with this approval
 
-1. **Selection granularity**: vertex + face only (proposed) vs edge loops too.
-2. **Storage**: project overrides/deltas against the base mesh (proposed) vs copies of full meshes.
-3. **Rigging**: block vertex-count-changing edits on rigged meshes until weight editing exists (proposed) vs interpolate weights now.
+1. **Texture storage**: copy imported textures into `workspace/` (proposed) vs reference arbitrary local paths.
+2. **DDS scope**: DXT1/3/5 + BC1–3 first (proposed) vs add BC4–7 and mipmaps now.
+3. **Normal preview**: tangent-space approximation with a toggle (proposed) vs skip normals until tangents are editable.
 
 **Waiting for explicit user approval.**
