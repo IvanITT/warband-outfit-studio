@@ -235,7 +235,47 @@ Invariants and safety rules (tested):
 `WorkspaceStore.writeBrf()` serializes a `BrfDocument` and writes it through the
 same guarded path.
 
-## 8. Deliberate omissions (updated after Phase 1)
+## 8. Installation profiles
+
+```
+ProfilesDocument
+  schemaVersion   1
+  activeId        profile id | null
+  profiles[]      InstallationProfile
+
+InstallationProfile
+  id              slug + path hash
+  label
+  path            normalized absolute root
+  createdAt, lastValidatedAt
+  valid           describeInstallation() succeeded
+  version         engine version from rgl_log.txt
+  moduleCount
+```
+
+Only the active profile drives the engine. Switching profiles reloads modules and
+clears the parsed module cache. `config/profiles.json` is machine-local and
+git-ignored.
+
+## 9. Backups
+
+```
+ProjectBackup
+  kind: 'project'
+  id, name, target
+  path, bytes, sha256, createdAt
+
+WorkspaceBackup
+  kind: 'workspace'
+  workspaceId, file
+  path, metaPath, bytes, sha256, backedUpAt
+```
+
+Restore inputs: the backup path plus a `confirm` value equal to the entity id.
+The current state is backed up before the restore, making the operation
+reversible. Workspace restores verify SHA-256 first.
+
+## 10. Deliberate omissions (updated after Phase 2)
 
 | Concept | Status | Phase |
 |---|---|---|
@@ -243,11 +283,15 @@ same guarded path.
 | Item flag symbols | **Implemented** (generated table + decoder) | 1 |
 | BRF writer | **Implemented** (raw-range copy + dirty objects) | 1 |
 | Skeleton/rig data per mesh | Raw rigging available; bones exposed in `BrfSkeleton` | 1 |
+| Installation profiles | **Implemented** (add/activate/validate/remove) | 2 |
+| Workspace lifecycle | **Implemented** (create/list/delete, guarded writes) | 2 |
+| Asset index | **Implemented** (meshes/materials/textures/shaders + references) | 2 |
+| Backup catalogue & restore | **Implemented** (projects + workspaces, hashes, confirmation) | 2 |
 | Outfit composition rules | Not started | 6 |
 | Export job / module integration | Workspace-only serialization exists; deployment not started | 8 |
 | 3D rendering | Not started | 3 |
 
-## 9. Identity rules
+## 11. Identity rules
 
 - **Module identity** = directory name (case preserved), plus a lowercase slug for URLs.
 - **Item identity** = record id (`itm_*`).

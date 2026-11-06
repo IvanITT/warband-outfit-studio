@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WARBand Outfit Studio</title>
-  <link rel="stylesheet" href="/css/app.css?v=0.2.0" />
+  <link rel="stylesheet" href="/css/app.css?v=0.3.1" />
 </head>
 <body>
   <div class="app">
@@ -13,12 +13,21 @@
         <div class="mark" aria-hidden="true">W</div>
         <div>
           <h1>WARBand <span>Outfit Studio</span></h1>
-          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 1</p>
+          <p class="subtitle">Entorno local de creación de ropa y armadura · Fase 2</p>
         </div>
       </div>
 
       <div class="topbar-actions">
-        <div id="install-pill" class="pill pill-muted" title="Estado de la instalación">Detectando instalación…</div>
+        <label class="select-wrap">
+          <span>Instalación</span>
+          <select id="profile-select" disabled>
+            <option>Cargando…</option>
+          </select>
+        </label>
+        <button id="manage-profiles" class="icon-button" type="button" title="Gestionar instalaciones">⚙</button>
+
+        <div id="install-pill" class="pill pill-muted" title="Estado de la instalación">Detectando…</div>
+
         <label class="select-wrap">
           <span>Módulo</span>
           <select id="module-select" disabled>
@@ -28,7 +37,16 @@
       </div>
     </header>
 
-    <main class="layout">
+    <nav class="viewnav" aria-label="Vistas">
+      <button class="viewtab is-active" data-view="outfits" type="button">Prendas</button>
+      <button class="viewtab" data-view="resources" type="button">Recursos</button>
+      <button class="viewtab" data-view="workspaces" type="button">Workspaces</button>
+      <button class="viewtab" data-view="backups" type="button">Copias</button>
+      <span class="viewnav-spacer"></span>
+      <span id="view-hint" class="viewnav-hint"></span>
+    </nav>
+
+    <main id="view-outfits" class="view layout">
       <aside class="panel list-panel">
         <div class="panel-head">
           <h2>Prendas y armaduras</h2>
@@ -82,13 +100,106 @@
       </aside>
     </main>
 
+    <main id="view-resources" class="view layout" hidden>
+      <aside class="panel list-panel">
+        <div class="panel-head">
+          <h2>Recursos</h2>
+          <span id="resource-count" class="counter">—</span>
+        </div>
+        <div class="filters">
+          <input id="resource-search" type="search" placeholder="Buscar recurso…" autocomplete="off" />
+          <div id="resource-types" class="chips" role="group" aria-label="Tipo de recurso">
+            <button class="chip is-active" data-type="mesh">Mallas</button>
+            <button class="chip" data-type="material">Materiales</button>
+            <button class="chip" data-type="texture">Texturas</button>
+            <button class="chip" data-type="shader">Shaders</button>
+          </div>
+        </div>
+        <div id="resource-list" class="item-list"></div>
+        <div class="list-footer">
+          <button id="resource-more" class="ghost" hidden>Cargar más</button>
+        </div>
+      </aside>
+
+      <section class="panel detail-panel">
+        <div id="resource-detail" class="detail">
+          <div class="empty-state">
+            <div class="empty-icon">▦</div>
+            <h2>Explora los recursos</h2>
+            <p>Mallas, materiales, texturas y shaders del módulo, con sus referencias cruzadas
+              y el estado de los archivos <code>.dds</code>.</p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel inspect-panel">
+        <div class="panel-head">
+          <h2>Referencias</h2>
+          <span id="resource-refs-count" class="counter">—</span>
+        </div>
+        <div id="resource-refs" class="validation">
+          <p class="muted">Selecciona un recurso para ver quién lo usa.</p>
+        </div>
+      </aside>
+    </main>
+
+    <main id="view-workspaces" class="view" hidden>
+      <section class="panel workspaces-panel">
+        <div class="panel-head">
+          <h2>Workspaces</h2>
+          <span id="workspaces-count" class="counter">—</span>
+        </div>
+        <div class="workspace-create">
+          <input id="workspace-label" type="text" placeholder="Nombre del workspace (ej. armaduras-v1)" />
+          <button id="workspace-create" class="primary" type="button">Crear workspace</button>
+          <button id="workspaces-refresh" class="ghost small" type="button">Actualizar</button>
+        </div>
+        <div id="workspaces-list" class="backups-list"></div>
+      </section>
+    </main>
+
+    <main id="view-backups" class="view" hidden>      <section class="panel backups-panel">
+        <div class="panel-head">
+          <h2>Copias de seguridad</h2>
+          <div class="panel-actions">
+            <span id="backups-count" class="counter">—</span>
+            <button id="backups-refresh" class="ghost small" type="button">Actualizar</button>
+          </div>
+        </div>
+        <div id="backups-list" class="backups-list"></div>
+      </section>
+    </main>
+
     <footer class="statusbar">
       <span id="status-text">Iniciando…</span>
       <span class="spacer"></span>
-      <span class="status-meta">Fase 1 · Resource Engine</span>
+      <span class="status-meta">Fase 2 · Game &amp; Module Manager</span>
     </footer>
   </div>
 
-  <script type="module" src="/js/app.js?v=0.2.0"></script>
+  <div id="profiles-modal" class="modal" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2>Instalaciones de Warband</h2>
+        <div class="panel-actions">
+          <button id="profiles-validate" class="ghost small" type="button">Validar todas</button>
+          <button id="profiles-close" class="icon-button" type="button" aria-label="Cerrar">×</button>
+        </div>
+      </header>
+      <div id="profiles-list" class="profiles-list"></div>
+      <form id="profile-add" class="profile-add">
+        <h3>Añadir instalación</h3>
+        <div class="form-row">
+          <input id="profile-path" type="text" placeholder="C:/Games/.../Mount and Blade - Warband" required />
+          <input id="profile-label" type="text" placeholder="Etiqueta (opcional)" />
+          <button class="primary" type="submit">Añadir</button>
+        </div>
+        <p class="hint">La ruta debe contener <code>mb_warband.exe</code> y la carpeta <code>Modules</code>.
+          No se modifica nada del juego.</p>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js?v=0.3.1"></script>
 </body>
 </html>

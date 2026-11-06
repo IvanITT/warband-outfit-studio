@@ -4,8 +4,8 @@
 > `PROGRESS.md` is kept as the historical phase journal; this file is canonical.
 >
 > Last updated: **2026-11-06**
-> Current phase: **Phase 1 — COMPLETE**
-> Waiting for: **explicit user approval to start Phase 2**
+> Current phase: **Phase 2 — COMPLETE**
+> Waiting for: **explicit user approval to start Phase 3**
 
 ---
 
@@ -121,6 +121,7 @@ Implemented engine modules:
 | Module | Responsibility | Status |
 |---|---|---|
 | `engine/installation/detect.js` | locate/describe installation, engine version | IMPLEMENTED |
+| `engine/installation/profileStore.js` | installation profiles (add/activate/validate/remove) | IMPLEMENTED |
 | `engine/modules/moduleIni.js` | `module.ini` parser | IMPLEMENTED |
 | `engine/modules/moduleRegistry.js` | module discovery, ids, capabilities | IMPLEMENTED |
 | `engine/items/itemKinds.js` | `item_kinds1.txt` parse + byte-perfect serialize | IMPLEMENTED |
@@ -239,16 +240,19 @@ Completed:
 
 **Exit met:** corpus green (219/219), geometry counts match, flags decoded, installation untouched (hash-checked).
 
-### Phase 2 — Game & Module Manager
+### Phase 2 — Game & Module Manager — **COMPLETE (2026-11-06)**
 
-Turn the existing detection/index into a complete manager.
+Completed:
 
-- Multi-installation profiles, user-selected paths, validation.
-- Module selection and capabilities surfaced in the UI.
-- Workspace creation/management (`workspace/<project>/module/`), safe copies.
-- Backup catalogue with hashes and restore.
-- Asset index UI (meshes, materials, textures, missing references).
-- **Exit:** user can create a workspace from a module, browse the index and restore a backup; tests cover the flow.
+- Installation profiles (`config/profiles.json`): bootstrap, add, dedupe, activate, validate, remove with typed confirmation.
+- Workspace lifecycle: create/list/delete, module association, guarded writes, atomic updates, backups with SHA-256.
+- Asset index API + UI: meshes, materials, textures, shaders, family/LOD/piece data, cross-references and an "open item" jump.
+- Backup catalogue: project + workspace backups, hash verification, typed confirmation, pre-restore backup.
+- Module manager UI: active profile, module selector, capabilities/versions visible in status.
+- New views: Recursos, Workspaces, Copias; profile modal.
+- 74 automated tests.
+
+**Exit met:** profiles resolve and activate independently; workspaces can be created/deleted safely; asset index browsable; restores verified and reversible; game untouched.
 
 ### Phase 3 — 3D Viewport
 
@@ -302,9 +306,9 @@ Turn the existing detection/index into a complete manager.
 
 ## 9. Current Phase
 
-**Phase 1 is COMPLETE.** All Phase 1 deliverables are implemented, tested and documented.
+**Phase 2 is COMPLETE.** All Phase 2 deliverables are implemented, tested and documented.
 
-**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 2.
+**No later phase has been authorized.** The next action is to wait for explicit approval to start Phase 3.
 
 ### Roadmap reconciliation (accepted)
 
@@ -318,8 +322,8 @@ The master roadmap assumed Phase 0 would produce only foundations, with parsers 
 The user approved Phase 1 with this reconciliation (ADR-012). Consequences, retained:
 
 - **Phase 1** targeted the **unfinished** Resource Engine work: geometry, BRF writing, symbolic item flags, mutation APIs and corpus tests. **Done.**
-- **Phase 2** targets the **unfinished** manager work: multi-installation profiles, workspace lifecycle, backup catalogue/restore and management UI.
-- No earlier deliverable is re-implemented.
+- **Phase 2** targeted the **unfinished** manager work: profiles, workspace lifecycle, asset index UI, backup catalogue/restore. **Done.**
+- No earlier deliverable was re-implemented.
 
 ---
 
@@ -389,39 +393,83 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 - Real geometry: `mail_shirt_a` vertex/face counts match the index, rigging present, face indices valid, UVs finite.
 - Export: source BRF SHA-256 unchanged; output written under `workspace/`.
 
+### Phase 2 (2026-11-06)
+
+**Installation profiles**
+
+- `ProfileStore` in `config/profiles.json` (git-ignored) with bootstrap, add/dedupe, activate, validate-all and removal guarded by the profile id.
+- Engine reloads modules and clears the module cache on activation.
+- Profile modal in the UI (add/activate/validate/remove).
+
+**Workspaces**
+
+- `WorkspaceStore`: create/list/delete, `moduleId` metadata, `ensure()` reuse, guarded relative paths, atomic writes, `.backups/` with SHA-256 sidecars.
+- Engine `createWorkspace(label, { reuse, moduleId })`, `removeWorkspace(id, confirm)`.
+- UI view for create/list/delete with typed confirmation.
+
+**Asset index**
+
+- `engine.listResources` and `engine.getResourceDetail` for meshes, materials, textures and shaders, with family/LOD/piece data, DDS metadata and cross-references.
+- New **Recursos** view; item references jump back to the outfit view.
+
+**Backups**
+
+- `ProjectStore.listBackups/restoreBackup`; `WorkspaceStore.listBackups/restoreBackup`.
+- Hash verification for workspace restores; pre-restore backup; path guards; typed confirmation.
+- **Copias** view listing both kinds.
+
+**Verification**
+
+- 74/74 tests in ~4.2 s.
+- Real data: profile 1.170/3 modules; 7,243 meshes indexed; `mail_shirt_a` material/refs resolved.
+- Restores verified against the real stores; wrong confirmations rejected with 400.
+- UI verified through the DOM: 279 wearables, 7,243 resources, mesh detail refs, workspace creation, backup rows, profile modal, no console errors.
+
 ---
 
 ## 11. Pending Work
 
-### Phase 2 (proposed, not authorized)
+### Phase 3 (proposed, not authorized)
 
-1. **Installation profiles** — multiple installs, user-selected paths, per-profile validation, persisted profile list.
-2. **Workspace lifecycle** — create from a module, list, inspect, delete with confirmation; workspace UI.
-3. **Module manager UI** — module capabilities, versions, resource load lists, unknown keys surfaced.
-4. **Asset index UI** — browse meshes/materials/textures per module, show missing references, search.
-5. **Backup catalogue & restore** — list backups (project + workspace), restore with confirmation, hash verification.
-6. **Docs** — manager architecture, workspace lifecycle, backup model.
+1. **Vendored Three.js** — download once, pin a version, commit under `frontend/vendor/`, no CDN.
+2. **Viewport** — WebGL canvas, orbit/pan/zoom, grid, lighting, resize handling, render loop.
+3. **Mesh loading** — consume `engine.getMeshGeometry` (typed arrays) without re-parsing BRF in the browser; adapters for layouts 0/1/2 and UV V-flip.
+4. **Basic material preview** — diffuse texture (DDS decode or server-side conversion), normal/spec placeholders, colour fallback.
+5. **Selection & framing** — pick a mesh from the asset index, frame its bbox, show counts.
+6. **Performance** — target ≥30 fps on integrated graphics for a single armor mesh; document limits.
+7. **Tests/docs** — engine geometry contract tests (already present), viewport manual checklist, architecture note.
 
-### Backlog after Phase 2
+### Explicitly out of Phase 3
 
-- Phase 3: vendored Three.js viewport, mesh rendering, materials, selection.
-- Phase 4+: mesh editor, materials, outfit editor, item editor, exporter, hardening, packaging.
+Mesh editing, texture editing, outfit composition, item editing, export/deployment.
+
+### Decisions requested with this approval
+
+1. **Three.js delivery**: vendored `three.module.js` (r1xx) vs a minimal custom WebGL renderer. Proposed: vendored Three.js (faster, well-tested), licence MIT.
+2. **DDS preview**: decode DDS in the browser (DXT decompressor) vs convert to PNG on the server. Proposed: browser decode with a small vendored decoder, cached.
+3. **Viewport placement**: new **Visor** tab vs embedded in the outfit detail. Proposed: new tab, reusable by future studios.
+
+### Backlog after Phase 3
+
+- Phase 4: mesh editor, materials, outfit editor, item editor, exporter, hardening, packaging.
 
 ---
 
-## 12. Known Issues (after Phase 1)
+## 12. Known Issues (after Phase 2)
 
 | # | Issue | Severity | Status |
 |---|---|---|---|
-| 1 | UI is read-only; projects can be created via API but not edited | High | Planned Phase 2+ |
+| 1 | The outfit view is read-only; project item editing is not implemented | High | Planned Phase 6–7 |
 | 2 | Dirty animations and collision bodies cannot be written | Medium | Preserved verbatim; writer throws if marked dirty |
 | 3 | Adding/removing BRF objects (section count changes) is not exposed | Medium | Phase 8 (builder) |
 | 4 | Geometry is re-read from disk on every call (no cache) | Low | Revisit in Phase 3 with real rendering |
-| 5 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Verify in Phase 2 |
+| 5 | Duplicate material names resolve first-wins; BRF load order is LIKELY | Low | Verify with a controlled load-order experiment |
 | 6 | Glove `_L`/`_R` engine mirroring is LIKELY, not traced | Low | Documented |
 | 7 | `module.ini` known-key catalogue is curated, not exhaustive | Low | Extend with engine evidence |
-| 8 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter in Phase 2 |
-| 9 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
+| 8 | `WB-I-003` (no normal map) is noisy for vanilla assets | Low | UI filter pending |
+| 9 | No workspace rename/file-level delete or restore diff preview | Low | Phase 9 |
+| 10 | Asset index lists LOD/piece meshes as separate rows | Low | Grouping toggle in Phase 3 |
+| 11 | `.sco` and `.sav` are uninvestigated | Low (out of scope) | — |
 
 ---
 
@@ -431,13 +479,15 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 |---|---|---|
 | `engine/validation/validate.js` | Mixed responsibilities (resolution + rules) in one file | Split when rules exceed ~20 |
 | `brfIndex` cache | Whole-module JSON cache; 7.8 MB for VC | Per-pack cache only if it becomes a problem |
-| Encoding | CP1252 fallback is silent; no per-file report in the UI | Surface in Phase 2 diagnostics |
+| Encoding | CP1252 fallback is silent; no per-file report in the UI | Surface in Phase 3 diagnostics |
 | `module.ini` | Hand-curated known keys | Generate from engine evidence / module system |
 | Frontend | No component framework; DOM helpers are ad hoc | Re-evaluate at Phase 3 (viewport) |
 | BRF writer | Encodes dirty meshes via `Buffer.concat` of many small chunks | Optimise only if large-mesh writes show up in profiles |
 | Geometry | No cache; one file read per mesh request | LRU in Phase 3 if the viewport needs it |
 | Flags table | Generated from 1.171; no 1.174 table | Regenerate when supporting another branch |
-| Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 2 |
+| Tests | Corpus is `CommonRes` only; module `Resource` packs not round-tripped | Extend in Phase 3+ |
+| Backups | No pruning/retention policy (ADR-020) | Phase 9 |
+| UI confirmations | `window.prompt` for destructive actions | Replace with an in-app dialog in Phase 10 |
 | Docs | `PROGRESS.md` and `PROJECT_PLAN.md` overlap | PROJECT_PLAN canonical; PROGRESS historical |
 | Packaging | Requires Node installed | Phase 10 (Node SEA) |
 
@@ -464,6 +514,9 @@ The user approved Phase 1 with this reconciliation (ADR-012). Consequences, reta
 | ADR-015 | Workspaces are the only write target (guards, atomic, backup, hash) | Accepted (Phase 1) |
 | ADR-016 | Commit generated flag table; no runtime Python | Accepted (Phase 1) |
 | ADR-017 | Enums decoded as fields, not independent bits | Accepted (Phase 1) |
+| ADR-018 | Installation profiles in machine-local `config/profiles.json` | Accepted (Phase 2) |
+| ADR-019 | Destructive actions require typed id confirmation | Accepted (Phase 2) |
+| ADR-020 | Keep every backup in Phase 2; pruning deferred | Accepted (Phase 2) |
 
 Full text: [DECISIONS.md](docs/development/DECISIONS.md).
 
@@ -500,7 +553,7 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 
 ## 16. Testing Status
 
-**Command:** `npm test` — **61 / 61 passing** (~4.0 s), zero dependencies.
+**Command:** `npm test` — **74 / 74 passing** (~4.2 s), zero dependencies.
 
 | Suite | Tests | Coverage |
 |---|---:|---|
@@ -508,23 +561,37 @@ Change policy: a discovery that invalidates an ADR is documented, its impact exp
 | `unit/itemKinds` | 5 | parsing, stats, byte-perfect round-trip, re-render, classification, errors |
 | `unit/itemFlags` | 6 | table provenance, real items, unknown bits, enum-vs-bit, zero capabilities |
 | `unit/brfWriter` | 7 | synthetic round-trip (v1/v0), spec presence, geometry, dirty material, flag guard |
-| `unit/workspace` | 4 | create/list/write, backup + hash, traversal/absolute rejection, missing workspace |
+| `unit/workspace` | 5 | create/list/write, backup + hash, traversal, delete confirmation, missing workspace |
+| `unit/backups` | 3 | project backup/restore, workspace restore + tamper detection, path escapes |
 | `unit/moduleIni` | 2 | keys, comments, resources, versions, capabilities, duplicates |
 | `unit/dds` | 3 | DDS header, bad magic, mesh naming |
 | `unit/projectStore` | 4 | ids, create/load/list, backup-on-save, traversal rejection |
 | `unit/validation` | 6 | missing mesh/material/texture/file, invalid DDS, shader warning |
 | `integration/brf` | 6 | real BRFs, truncation, naming |
 | `integration/brfWriter` | 4 | 219-file byte-identical corpus, real mesh edit, real geometry, workspace export |
+| `integration/profiles` | 3 | bootstrap, dedupe/invalid, remove confirmation + active reset |
+| `integration/resources` | 6 | lists, mesh/material/texture/shader details, references, structured 404 |
 | `integration/pipeline` | 7 | installation, Native counts, chain + flags, composed mesh, batch validation, all modules |
-| `integration/api` | 2 | HTTP API, CSP, static, projects + backup, structured 404 |
+| `integration/api` | 2 | profiles, resources, workspaces, backups, projects, CSP, static, 404 |
 
 Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734 textures / 139 shaders; 0 parse errors; byte-identical `item_kinds1.txt` round-trip in all three modules; **219/219 BRF byte-identical round-trip**.
 
-**Not yet tested:** dirty animation/body writing (unsupported), module `Resource` corpus round-trip, `.sco`/`.sav`, concurrent index builds, very large mods (>1 GB) under memory pressure, viewport (not implemented).
+**Not yet tested:** viewport (not implemented), dirty animation/body writing (unsupported), module `Resource` corpus round-trip, `.sco`/`.sav`, concurrent index builds, >1 GB mods under memory pressure.
 
 ---
 
 ## 17. Change Log
+
+### 2026-11-06 — Phase 2 completed
+
+- **Profiles**: `ProfileStore` + modal; bootstrap/dedupe/activate/validate/remove.
+- **Workspaces**: lifecycle store + UI; guarded paths, delete confirmation, module metadata.
+- **Asset index**: engine methods + **Recursos** view with cross-references.
+- **Backups**: project/workspace catalogue + restore with hashes, typed confirmation, pre-restore backup; **Copias** view.
+- **UI**: new views (Recursos, Workspaces, Copias), profile selector, 0.3.0.
+- **Tests**: 74 passing (profiles, resources, backups, workspace delete).
+- Docs: `docs/architecture/MANAGER.md`, architecture/data model/ADR-018…020.
+- Milestone tag: `phase-2-module-manager`.
 
 ### 2026-11-06 — Phase 1 completed
 
@@ -563,27 +630,27 @@ Golden assertions: 620 items / 279 wearables; 7,243 meshes / 633 materials / 734
 
 ## 18. Next Phase
 
-**Phase 2 — Game & Module Manager** (proposed; requires explicit approval).
+**Phase 3 — 3D Viewport** (proposed; requires explicit approval).
 
 ### Proposed scope
 
 | Work item | Deliverable | Exit criterion |
 |---|---|---|
-| Installation profiles | multiple installs, user paths, validation, persisted list | two profiles resolve and validate independently |
-| Workspace lifecycle | create from module, list, inspect, delete with confirmation | workspace can be created and removed safely; game untouched |
-| Module manager UI | capabilities, versions, resource lists, unknown keys | module switching surfaces all metadata |
-| Asset index UI | browse meshes/materials/textures, missing references, search | user can navigate a module's resource graph |
-| Backup catalogue | list/restore project + workspace backups, verify hashes | restore reproduces the original bytes and hash |
-| Docs | manager architecture, workspace lifecycle, backup model | linked and tested |
+| Vendor Three.js | pinned local copy under `frontend/vendor/` | loads offline, no CDN |
+| Viewport | canvas, orbit/pan/zoom, grid, lighting, resize | ≥30 fps on integrated GPU for one armor mesh |
+| Mesh loading | adapters for engine geometry layouts 0/1/2 | real mesh renders with correct orientation/UVs |
+| Material preview | diffuse texture (DDS decoded client-side) + fallback colour | `mail_shirt_a` looks recognisable |
+| Selection/framing | pick from asset index, frame bbox | counts and bbox match the engine |
+| Docs/tests | viewport architecture + manual checklist | documented and repeatable |
 
-### Explicitly out of Phase 2
+### Explicitly out of Phase 3
 
-3D viewport, mesh/material editors, item editor, deployment into a module.
+Mesh editing, texture editing, outfit composition, item editing, deployment.
 
 ### Decisions requested with this approval
 
-1. **Profile storage**: `config/profiles.json` (local, git-ignored) vs project-local. Proposed: local config.
-2. **Workspace deletion**: require typing the workspace id, or a standard confirmation dialog? Proposed: typed id.
-3. **Backup retention**: keep all backups, or keep the last N per file? Proposed: keep all in Phase 2, prune in Phase 9.
+1. **Three.js delivery**: vendored (proposed) vs a minimal custom WebGL renderer.
+2. **DDS preview**: browser-side DXT decode (proposed) vs server-side PNG conversion.
+3. **Viewport placement**: new **Visor** tab (proposed) vs embedded in the outfit detail.
 
 **Waiting for explicit user approval.**

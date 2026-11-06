@@ -10,7 +10,7 @@ Item → Mesh → Material → Texture → .dds file
 
 and gives modders a safe place to inspect, validate and (in later phases) create, edit and export wearable assets.
 
-- **Phase 1 (current): resource engine — BRF writing, lazy geometry, symbolic item flags, workspace-only mutation.**
+- **Phase 2 (current): game & module manager — installation profiles, asset index, workspace lifecycle, backup catalogue and restore.**
 - No cloud services, no telemetry, no external runtime dependencies.
 - Never writes to the game installation.
 
@@ -35,6 +35,8 @@ node backend\server\index.js --open
 
 The server binds to `127.0.0.1:8791` (next free port if busy) and opens the UI.
 
+Views: **Prendas** (items), **Recursos** (mesh/material/texture/shader index), **Workspaces** (create/delete), **Copias** (backup catalogue and restore). The gear button manages installation profiles.
+
 Configure the installation by copying `config/app.example.json` to `config/app.json` and setting `installationPath`, or with the `WARBAND_DIR` environment variable. `config/app.json` is machine-specific and git-ignored.
 
 ## Tests
@@ -43,7 +45,7 @@ Configure the installation by copying `config/app.example.json` to `config/app.j
 npm test
 ```
 
-61 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
+74 tests: unit tests with synthetic fixtures and integration tests against the real installation (read-only). If the game is not installed, integration tests are skipped automatically.
 
 ## Useful commands
 
@@ -73,6 +75,7 @@ backups/      automatic project backups
 
 - [Project plan (canonical)](PROJECT_PLAN.md)
 - [Architecture](docs/architecture/ARCHITECTURE.md)
+- [Game & module manager](docs/architecture/MANAGER.md)
 - [Data model](docs/architecture/DATA-MODEL.md)
 - [Warband format map for clothing/armor](docs/warband-analysis/FORMAT-MAP.md)
 - [BRF format](docs/formats/BRF.md) · [Items](docs/formats/ITEMS.md) · [DDS](docs/formats/DDS.md)
@@ -88,4 +91,4 @@ backups/      automatic project backups
 
 ## Status
 
-Phase 1 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 2 scope.
+Phase 2 complete. See [PROGRESS.md](PROGRESS.md) for the implementation status matrix and [PROJECT_PLAN.md](PROJECT_PLAN.md) for the Phase 3 scope.

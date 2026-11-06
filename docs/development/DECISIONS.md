@@ -146,3 +146,37 @@ mode, not two flags. A bit-only decoder silently produces wrong labels.
 
 **Consequences:** decoding needs the field masks; unknown field values are
 reported as unknown rather than decomposed.
+
+## ADR-018 — Profiles live in machine-local config
+
+**Decision:** installation profiles are stored in `config/profiles.json`
+(git-ignored); the active profile drives the engine.
+
+**Rationale:** the repository must not contain user-specific absolute paths, and
+the tool must support several installations. Bootstrap from env/config/known
+paths avoids an empty first run.
+
+**Consequences:** cloning the repo never carries a machine path; deleting the
+file re-triggers auto-detection.
+
+## ADR-019 — Destructive actions require typed confirmation
+
+**Decision:** profile removal, workspace deletion and backup restore require the
+entity id as an explicit `confirm` value. Restores first back up the current
+state.
+
+**Rationale:** these operations can destroy work; a boolean dialog is too easy
+to click through. The id is visible in the UI and unambiguous.
+
+**Consequences:** API clients must pass the id; the UI prompts for it. Tests
+cover wrong-value rejection.
+
+## ADR-020 — Keep every backup in Phase 2
+
+**Decision:** no automatic pruning; all project and workspace backups are kept.
+
+**Rationale:** disk cost is small (JSON/binary snapshots) and recovery matters
+more than tidiness. Pruning needs usage evidence and safe policies.
+
+**Consequences:** Phase 9 adds retention and rollback UX; until then the list
+may grow.

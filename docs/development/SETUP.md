@@ -30,6 +30,10 @@ copy config\app.example.json config\app.json
 
 Forward slashes are recommended in JSON. `installationPath` may be `null` when auto-detection finds the game.
 
+On first run the engine stores the detected installation in `config/profiles.json`
+(git-ignored). Additional installations can be added from the UI (gear button)
+and switched at any time.
+
 ## Run
 
 ```bat
@@ -56,7 +60,7 @@ npm run test:integration
 - Integration tests read the real installation and **never write to it**.
 - If `mb_warband.exe` is missing, integration tests are skipped with a reason, not failed.
 
-Expected Phase 1 result: **61 passing**.
+Expected Phase 2 result: **74 passing**.
 
 ## CLI tools
 
@@ -89,9 +93,10 @@ projects/        project JSON (user data)
 backups/         automatic project backups
 cache/           BRF index cache (derived, safe to delete)
 workspace/       working copies written by the engine (BRF exports, backups)
+config/profiles.json  local installation profiles (created on first run)
 ```
 
-`cache/`, `projects/*.json` and `backups/` are git-ignored.
+`cache/`, `projects/*.json`, `backups/`, `workspace/*` and `config/profiles.json` are git-ignored.
 
 ## Troubleshooting
 
@@ -123,5 +128,9 @@ workspace/       working copies written by the engine (BRF exports, backups)
 | Cross-file index | `engine/resources/brfIndex.js` |
 | Validation rules | `engine/validation/rules.js` |
 | Project storage | `engine/projects/projectStore.js` |
+| Installation profiles | `engine/installation/profileStore.js` |
+| Workspace lifecycle | `engine/resources/workspace.js` |
+| Asset index API | `engine/index.js` (`listResources`, `getResourceDetail`) |
+| Backup API | `projectStore.listBackups/restoreBackup`, `workspace.listBackups/restoreBackup` |
 | HTTP routes | `backend/api/routes.js` |
 | UI | `frontend/js/app.js` |

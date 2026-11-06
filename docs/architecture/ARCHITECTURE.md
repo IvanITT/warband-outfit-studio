@@ -50,6 +50,7 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | Module | Responsibility | State |
 |---|---|---|
 | `engine/installation/detect.js` | Locate and describe an installation (exe, modules, version, optional dirs). Read-only. | IMPLEMENTED |
+| `engine/installation/profileStore.js` | Installation profiles, activation, validation, removal. | IMPLEMENTED |
 | `engine/modules/moduleIni.js` | Parse `module.ini` (keys, duplicates, resources, versions, capabilities). | IMPLEMENTED |
 | `engine/modules/moduleRegistry.js` | Enumerate modules, stable ids/slugs. | IMPLEMENTED |
 | `engine/items/itemKinds.js` | Parse/serialize `item_kinds1.txt`, classify slots/categories. | IMPLEMENTED |
@@ -61,7 +62,8 @@ The engine can be imported by a CLI (`tools/*.js`) or a future desktop shell wit
 | `engine/items/itemFlags.js` | Generated `itp_*` / `itcf_*` decoder. | IMPLEMENTED |
 | `engine/textures/dds.js` | DDS header parser. | IMPLEMENTED |
 | `engine/validation/*` | Rule catalogue + item chain validation. | IMPLEMENTED |
-| `engine/projects/projectStore.js` | JSON projects, atomic writes, automatic backups. | IMPLEMENTED |
+| `engine/projects/projectStore.js` | JSON projects, atomic writes, automatic backups, restore. | IMPLEMENTED |
+| `engine/resources/workspace.js` | Workspace lifecycle, guarded writes, backups, restore. | IMPLEMENTED |
 | Future: `engine/exporters/` | Write items/BRF and deploy to a module with confirmation. | PLANNED |
 
 ## 5. Data flow: resolving one item
@@ -126,12 +128,24 @@ The cache is derived data and safe to delete.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | liveness, version, uptime |
-| GET | `/api/status` | installation, candidates, modules, project root |
+| GET | `/api/status` | installation, profiles, modules, project root |
+| GET | `/api/profiles` | profile list + active |
+| POST | `/api/profiles` | add `{ path, label }` (validates) |
+| POST | `/api/profiles/:id/activate` | switch active installation |
+| POST | `/api/profiles/validate` | re-validate every profile |
+| DELETE | `/api/profiles/:id?confirm=<id>` | remove a profile (typed confirmation) |
 | GET | `/api/modules` | module list with capabilities and ini summary |
 | GET | `/api/modules/:id/summary` | item counts by slot, BRF stats, timing |
 | GET | `/api/items` | paged wearable items (`slot`, `category`, `q`, `wearable`, `limit`, `offset`) |
-| GET | `/api/items/:id` | item + resolved chain + validation |
+| GET | `/api/items/:id` | item + resolved chain + validation + decoded flags |
 | POST | `/api/validate` | batch validation `{ module, ids[] }` |
+| GET | `/api/resources` | asset index (`type`, `q`, paging) |
+| GET | `/api/resources/:type/:name` | mesh/material/texture/shader detail + references |
+| GET | `/api/workspaces` | workspace list |
+| POST | `/api/workspaces` | create `{ label, module }` |
+| DELETE | `/api/workspaces/:id?confirm=<id>` | delete workspace (typed confirmation) |
+| GET | `/api/backups` | project + workspace backup catalogue |
+| POST | `/api/backups/restore` | restore `{ kind, path, confirm, workspaceId? }` |
 | GET | `/api/projects` | project list |
 | POST | `/api/projects` | create project `{ name, module, notes }` |
 | GET | `/api/projects/:id` | load project |

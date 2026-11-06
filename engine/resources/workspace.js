@@ -17,7 +17,7 @@
 
 import path from 'node:path';
 import { copyFile, readFile, rename, writeFile as fsWriteFile } from 'node:fs/promises';
-import { ensureDir, exists, listDir, readJson, sha256File, statSafe, writeJsonAtomic } from '../util/fsx.js';
+import { ensureDir, exists, listDir, listFiles, readJson, sha256File, statSafe, writeJsonAtomic } from '../util/fsx.js';
 import { slugify } from '../util/slug.js';
 
 const ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
@@ -35,6 +35,7 @@ const METADATA = '.workspace.json';
  * @property {number} schemaVersion
  * @property {string} id
  * @property {string} label
+ * @property {string|null} moduleId
  * @property {string} createdAt
  * @property {string} updatedAt
  * @property {Record<string, WorkspaceFile>} files
@@ -101,6 +102,7 @@ export class WorkspaceStore {
         workspaces.push({
           id: metadata.id,
           label: metadata.label,
+          moduleId: metadata.moduleId ?? null,
           createdAt: metadata.createdAt,
           updatedAt: metadata.updatedAt,
           files: Object.keys(metadata.files).length,
@@ -114,7 +116,7 @@ export class WorkspaceStore {
   }
 
   /**
-   * @param {{ label: string, id?: string }} input
+   * @param {{ label: string, id?: string, moduleId?: string }} input
    * @returns {Promise<WorkspaceMetadata>}
    */
   async create(input) {
@@ -129,6 +131,7 @@ export class WorkspaceStore {
       schemaVersion: 1,
       id,
       label: input.label.trim() || id,
+      moduleId: input.moduleId ?? null,
       createdAt: now,
       updatedAt: now,
       files: {},
@@ -136,6 +139,16 @@ export class WorkspaceStore {
     await ensureDir(this.dirFor(id));
     await writeJsonAtomic(path.join(this.dirFor(id), METADATA), metadata);
     return metadata;
+  }
+
+  /**
+   * Reuse a workspace with the same label, or create it.
+   * @param {string} label
+   */
+  async ensure(label) {
+    const id = slugify(label, 'workspace');
+    if (await exists(this.dirFor(id))) return this.get(id);
+    return this.create({ label, id });
   }
 
   /**
@@ -201,5 +214,111 @@ export class WorkspaceStore {
   /** @param {string} id @param {string} relativePath */
   async readFile(id, relativePath) {
     return readFile(this.resolve(id, relativePath));
+  }
+
+  /**
+   * Delete a workspace directory. Requires the workspace id as confirmation.
+   * The game installation is never touched.
+   * @param {string} id
+   * @param {string} confirm
+   */
+  async remove(id, confirm) {
+    if (confirm !== id) {
+      const error = new Error('Confirmation required: pass the workspace id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+    const dir = this.dirFor(id);
+    await this.get(id); // ensures the metadata exists
+    const root = path.resolve(this.rootDir);
+    const target = path.resolve(dir);
+    if (target === root || !target.startsWith(root + path.sep)) {
+      throw new Error('Refusing to delete a path outside the workspace root.');
+    }
+    const { rm } = await import('node:fs/promises');
+    await rm(target, { recursive: true, force: false });
+    return { removed: id };
+  }
+
+  /**
+   * List backups, for one workspace or all of them.
+   * @param {string} [id]
+   */
+  async listBackups(id) {
+    const workspaceIds = id ? [id] : (await this.list()).map((workspace) => workspace.id);
+    /** @type {any[]} */
+    const backups = [];
+
+    for (const workspaceId of workspaceIds) {
+      const root = path.join(this.dirFor(workspaceId), '.backups');
+      if (!(await exists(root))) continue;
+      for (const sidecar of await listFiles(root, { extensions: ['.json'] })) {
+        try {
+          const meta = await readJson(sidecar);
+          if (!meta?.workspace || !meta?.file || !meta?.sha256) continue;
+          const dataPath = sidecar.replace(/\.json$/, '');
+          const stat = await statSafe(dataPath);
+          if (!stat?.isFile()) continue;
+          backups.push({
+            kind: 'workspace',
+            workspaceId,
+            file: meta.file,
+            path: dataPath,
+            metaPath: sidecar,
+            backedUpAt: meta.backedUpAt,
+            bytes: stat.size,
+            sha256: meta.sha256,
+          });
+        } catch {
+          /* ignore corrupt sidecars */
+        }
+      }
+    }
+
+    backups.sort((a, b) => String(b.backedUpAt).localeCompare(String(a.backedUpAt)));
+    return backups;
+  }
+
+  /**
+   * Restore one workspace file from a backup. The current file is backed up
+   * again before the restore.
+   * @param {string} workspaceId
+   * @param {string} backupPath
+   * @param {string} confirm Must equal the workspace id.
+   */
+  async restoreBackup(workspaceId, backupPath, confirm) {
+    if (confirm !== workspaceId) {
+      const error = new Error('Confirmation required: pass the workspace id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+
+    const root = path.resolve(this.dirFor(workspaceId), '.backups');
+    const source = path.resolve(backupPath);
+    if (source !== root && !source.startsWith(root + path.sep)) {
+      const error = new Error('Backup path is outside this workspace.');
+      // @ts-expect-error machine-readable
+      error.code = 'PATH_OUTSIDE_BACKUP';
+      throw error;
+    }
+
+    const metaPath = `${source}.json`;
+    const meta = await readJson(metaPath);
+    if (meta.workspace !== workspaceId || !meta.file) {
+      throw new Error('Backup metadata does not belong to this workspace.');
+    }
+    const actual = await sha256File(source);
+    if (actual !== meta.sha256) {
+      const error = new Error('Backup hash does not match its metadata.');
+      // @ts-expect-error machine-readable
+      error.code = 'BACKUP_CORRUPT';
+      throw error;
+    }
+
+    const data = await readFile(source);
+    const result = await this.writeFile(workspaceId, meta.file, data);
+    return { ...result, restoredFrom: source, sha256: actual };
   }
 }

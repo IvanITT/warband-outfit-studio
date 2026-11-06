@@ -277,3 +277,72 @@ New suites:
 ### Milestone
 
 Tag `phase-1-resource-engine`. No game files were modified. `npm test` green.
+
+---
+
+## Phase 2 — Game & Module Manager
+
+**Date:** 2026-11-06
+**Status: COMPLETE**
+
+### Objective
+
+Turn detection/indexing into a complete local manager: multiple installation profiles, workspace lifecycle, a browsable asset index and a backup catalogue with verified restores.
+
+### Implemented
+
+| Area | Deliverable |
+|---|---|
+| Profiles | `config/profiles.json` (git-ignored), bootstrap, add/dedupe, activate, validate, remove with typed id |
+| Workspaces | create/list/delete, `moduleId`, reuse (`ensure`), guarded writes, atomic updates, SHA-256 backups |
+| Asset index | `listResources` / `getResourceDetail` for meshes, materials, textures, shaders; family/LOD/pieces; DDS metadata; cross-references |
+| Backups | project + workspace listing, hash verification, restore with typed confirmation and pre-restore backup |
+| UI | `Recursos`, `Workspaces`, `Copias` views; profile selector + modal; module selector |
+| API | profiles, resources, workspaces, backups/restore endpoints |
+| Version | 0.3.0, phase 2 |
+
+### Tests
+
+`npm test` → **74 / 74 passing** (~4.2 s).
+
+New suites:
+
+- `integration/profiles` (3): bootstrap, dedupe/invalid path, remove confirmation + active reset.
+- `integration/resources` (6): lists, details, references, structured 404.
+- `unit/backups` (3): project restore, workspace restore + tamper detection, path escapes.
+- `unit/workspace` extended (5): delete requires the workspace id.
+- `integration/api` extended: profiles, resources, workspaces, backups.
+
+### Verified against real data
+
+- Active profile: 1.170, 3 modules; written to `config/profiles.json` on first run.
+- Asset index: 7,243 meshes in Native; `mail_shirt_a` resolves material, three textures (1024²) and `itm_mail_shirt`.
+- Workspace UI: create `Ui Demo` → `workspace/ui-demo` with module Native; list shows file count.
+- Backups: project + workspace rows rendered from real files; wrong confirmation → HTTP 400; correct restore restored `notes=v1` and created a pre-restore backup.
+- UI DOM checks: 279 wearables, 7,243 resources, mesh refs, backup section counts, profile modal; no console errors.
+
+### Findings / corrections
+
+1. **Repeated CLI exports created `demo-1`, `demo-2`.** Fixed with `WorkspaceStore.ensure(label)` and `createWorkspace(label, { reuse: true })`; the CLI now reuses `workspace/demo`.
+2. **Destructive actions need more than a boolean.** Profiles, workspaces and restores now require the entity id as `confirm` (ADR-019); restores also back up the current state.
+3. **Backups must be validated, not trusted.** Workspace restores verify the sidecar SHA-256 before writing; tests tamper with a backup and assert rejection.
+4. **Profiles must not leak machine paths.** `config/profiles.json` is git-ignored and auto-created (ADR-018).
+
+### Known limitations
+
+- No workspace rename or file-level delete.
+- No diff preview before restore.
+- No backup pruning (retention deferred to Phase 9).
+- Asset index shows LOD/piece meshes as separate rows.
+- Destructive confirmations use `window.prompt` (polish in Phase 10).
+- Deployment is still Phase 8.
+
+### Documentation updated
+
+- `PROJECT_PLAN.md` (Phase 2 complete, Phase 3 proposed, ADR-018…020, tests, changelog).
+- New `docs/architecture/MANAGER.md`.
+- `docs/architecture/{ARCHITECTURE,DATA-MODEL}.md`, `docs/development/{DECISIONS,SETUP}.md`, `README.md`.
+
+### Milestone
+
+Tag `phase-2-module-manager`. No game files were modified. `npm test` green.

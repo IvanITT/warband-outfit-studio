@@ -38,7 +38,7 @@ const mesh = flag('--mesh');
 const material = flag('--material');
 const relativePath = flag('--relative') ?? path.basename(brfPath);
 
-const workspace = await engine.createWorkspace(label);
+const workspace = await engine.createWorkspace(label, { reuse: true });
 const result = await engine.exportBrf(workspace.id, path.resolve(brfPath), {
   relativePath,
   meshPatches: mesh ? [{ mesh, material: material ?? undefined }] : [],

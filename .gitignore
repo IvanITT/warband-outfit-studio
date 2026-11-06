@@ -13,6 +13,7 @@ workspace/*
 
 # local machine configuration (copy config/app.example.json to config/app.json)
 config/app.json
+config/profiles.json
 config/app.local.json
 
 # logs and OS files

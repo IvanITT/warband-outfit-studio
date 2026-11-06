@@ -19,8 +19,8 @@ export function createApi(engine) {
       return {
         ok: true,
         service: 'warband-outfit-studio',
-        version: '0.2.0',
-        phase: 1,
+        version: '0.3.0',
+        phase: 2,
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
       };
@@ -28,6 +28,48 @@ export function createApi(engine) {
 
     if (method === 'GET' && urlPath === '/api/status') {
       return { ok: true, ...engine.getStatus() };
+    }
+
+    /* ---- installation profiles ---- */
+
+    if (method === 'GET' && urlPath === '/api/profiles') {
+      const status = engine.getStatus();
+      return { ok: true, ...status.profiles, installation: status.installation };
+    }
+
+    if (method === 'POST' && urlPath === '/api/profiles') {
+      if (!body?.path) {
+        const error = new Error('Body must contain { path }');
+        // @ts-expect-error machine-readable
+        error.code = 'BAD_REQUEST';
+        throw error;
+      }
+      const result = await engine.addProfile({ path: String(body.path), label: body.label ? String(body.label) : undefined });
+      return { ok: true, ...result, status: engine.getStatus() };
+    }
+
+    const profileAction = urlPath.match(/^\/api\/profiles\/([^/]+)\/(activate|validate)$/);
+    if (method === 'POST' && profileAction) {
+      const id = decodeURIComponent(profileAction[1]);
+      if (profileAction[2] === 'activate') {
+        const result = await engine.activateProfile(id);
+        return { ok: true, ...result, status: engine.getStatus() };
+      }
+      const result = await engine.validateProfiles();
+      return { ok: true, ...result, status: engine.getStatus() };
+    }
+
+    const profileRoute = urlPath.match(/^\/api\/profiles\/([^/]+)$/);
+    if (method === 'DELETE' && profileRoute) {
+      const id = decodeURIComponent(profileRoute[1]);
+      const confirm = query.get('confirm') ?? '';
+      const result = await engine.removeProfile(id, confirm);
+      return { ok: true, ...result, status: engine.getStatus() };
+    }
+
+    if (method === 'POST' && urlPath === '/api/profiles/validate') {
+      const result = await engine.validateProfiles();
+      return { ok: true, ...result, status: engine.getStatus() };
     }
 
     if (method === 'GET' && urlPath === '/api/modules') {
@@ -84,6 +126,90 @@ export function createApi(engine) {
       const moduleId = body.module ?? 'Native';
       const result = await engine.validate(moduleId, body.ids.map(String));
       return { ok: true, module: moduleId, ...result };
+    }
+
+    /* ---- asset index ---- */
+
+    if (method === 'GET' && urlPath === '/api/resources') {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.listResources(moduleId, {
+        type: query.get('type') ?? 'mesh',
+        q: query.get('q') ?? undefined,
+        limit: Number(query.get('limit') ?? 100),
+        offset: Number(query.get('offset') ?? 0),
+      });
+      return { ok: true, module: moduleId, ...result };
+    }
+
+    const resourceDetail = urlPath.match(/^\/api\/resources\/(mesh|material|texture|shader)\/(.+)$/);
+    if (method === 'GET' && resourceDetail) {
+      const moduleId = query.get('module') ?? 'Native';
+      const result = await engine.getResourceDetail(
+        moduleId,
+        resourceDetail[1],
+        decodeURIComponent(resourceDetail[2]),
+      );
+      return { ok: true, module: moduleId, ...result };
+    }
+
+    /* ---- backups ---- */
+
+    if (method === 'GET' && urlPath === '/api/workspaces') {
+      return { ok: true, workspaces: await engine.listWorkspaces() };
+    }
+
+    if (method === 'POST' && urlPath === '/api/workspaces') {
+      if (!body?.label) {
+        const error = new Error('Body must contain { label }');
+        // @ts-expect-error machine-readable
+        error.code = 'BAD_REQUEST';
+        throw error;
+      }
+      const workspace = await engine.createWorkspace(String(body.label), { moduleId: body.module });
+      return { ok: true, workspace };
+    }
+
+    const workspaceRoute = urlPath.match(/^\/api\/workspaces\/([^/]+)$/);
+    if (method === 'DELETE' && workspaceRoute) {
+      const id = decodeURIComponent(workspaceRoute[1]);
+      const confirm = query.get('confirm') ?? '';
+      const result = await engine.removeWorkspace(id, confirm);
+      return { ok: true, ...result };
+    }
+
+    if (method === 'GET' && urlPath === '/api/backups') {
+      return { ok: true, ...(await engine.listBackups()) };
+    }
+
+    if (method === 'POST' && urlPath === '/api/backups/restore') {
+      if (!body?.kind || !body?.path || !body?.confirm) {
+        const error = new Error('Body must contain { kind, path, confirm }');
+        // @ts-expect-error machine-readable
+        error.code = 'BAD_REQUEST';
+        throw error;
+      }
+      if (body.kind === 'project') {
+        const result = await engine.restoreProjectBackup(String(body.path), String(body.confirm));
+        return { ok: true, kind: 'project', ...result };
+      }
+      if (body.kind === 'workspace') {
+        if (!body.workspaceId) {
+          const error = new Error('Workspace restores require workspaceId');
+          // @ts-expect-error machine-readable
+          error.code = 'BAD_REQUEST';
+          throw error;
+        }
+        const result = await engine.restoreWorkspaceBackup(
+          String(body.workspaceId),
+          String(body.path),
+          String(body.confirm),
+        );
+        return { ok: true, kind: 'workspace', ...result };
+      }
+      const error = new Error(`Unknown backup kind '${body.kind}'`);
+      // @ts-expect-error machine-readable
+      error.code = 'BAD_REQUEST';
+      throw error;
     }
 
     if (method === 'GET' && urlPath === '/api/projects') {

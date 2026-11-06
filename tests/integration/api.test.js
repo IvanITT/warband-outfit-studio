@@ -49,6 +49,53 @@ test('HTTP API exposes installation, items, validation and projects', { skip: ha
   const validation = await validationResponse.json();
   assert.equal(validation.summary.errors, 0);
 
+  const profilesResponse = await fetch(`${base}/api/profiles`);
+  const profiles = await profilesResponse.json();
+  assert.equal(profiles.ok, true);
+  assert.equal(profiles.profiles.length, 1);
+  assert.equal(profiles.profiles[0].valid, true);
+
+  const resourcesResponse = await fetch(`${base}/api/resources?module=Native&type=mesh&q=mail_shirt&limit=5`);
+  const resources = await resourcesResponse.json();
+  assert.equal(resources.ok, true);
+  assert.ok(resources.total >= 1);
+
+  const resourceResponse = await fetch(`${base}/api/resources/mesh/mail_shirt_a?module=Native`);
+  const resource = await resourceResponse.json();
+  assert.equal(resource.detail.material.name, 'mail_shirt_a');
+  assert.ok(resource.detail.usedByItems.some((item) => item.id === 'itm_mail_shirt'));
+
+  const backupsResponse = await fetch(`${base}/api/backups`);
+  const backupList = await backupsResponse.json();
+  assert.equal(backupList.ok, true);
+  assert.ok(Array.isArray(backupList.projects));
+  assert.ok(Array.isArray(backupList.workspaces));
+
+  const workspaceResponse = await fetch(`${base}/api/workspaces`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label: 'API Workspace', module: 'Native' }),
+  });
+  const createdWorkspace = await workspaceResponse.json();
+  assert.equal(createdWorkspace.workspace.id, 'api-workspace');
+
+  const workspacesResponse = await fetch(`${base}/api/workspaces`);
+  const workspaceList = await workspacesResponse.json();
+  assert.equal(workspaceList.workspaces.length, 1);
+
+  const badDelete = await fetch(
+    `${base}/api/workspaces/${createdWorkspace.workspace.id}?confirm=wrong`,
+    { method: 'DELETE' },
+  );
+  assert.equal(badDelete.status, 400);
+
+  const deleteResponse = await fetch(
+    `${base}/api/workspaces/${createdWorkspace.workspace.id}?confirm=${createdWorkspace.workspace.id}`,
+    { method: 'DELETE' },
+  );
+  assert.equal(deleteResponse.status, 200);
+  assert.equal((await (await fetch(`${base}/api/workspaces`)).json()).workspaces.length, 0);
+
   const createResponse = await fetch(`${base}/api/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,11 +1,19 @@
-/** WARBand Outfit Studio — Phase 0 application shell. */
+/** WARBand Outfit Studio — application shell (Phase 2). */
 
 import { api, ApiError } from './api.js';
+import { el } from './ui.js';
+import { createOutfitsView } from './outfits.js';
+import { createResourcesView } from './resources.js';
+import { createBackupsView } from './backups.js';
+import { createWorkspacesView } from './workspaces.js';
+import { createInstallations } from './installations.js';
 
 const state = {
   status: null,
+  view: 'outfits',
   moduleId: 'Native',
   summary: null,
+  // outfits view state
   items: [],
   total: 0,
   offset: 0,
@@ -19,8 +27,20 @@ const state = {
 };
 
 const dom = {
+  statusText: document.getElementById('status-text'),
   installPill: document.getElementById('install-pill'),
+  profileSelect: document.getElementById('profile-select'),
   moduleSelect: document.getElementById('module-select'),
+  manageProfiles: document.getElementById('manage-profiles'),
+  viewHint: document.getElementById('view-hint'),
+  views: {
+    outfits: document.getElementById('view-outfits'),
+    resources: document.getElementById('view-resources'),
+    workspaces: document.getElementById('view-workspaces'),
+    backups: document.getElementById('view-backups'),
+  },
+  tabs: [...document.querySelectorAll('.viewtab')],
+  // outfits
   itemCount: document.getElementById('item-count'),
   itemList: document.getElementById('item-list'),
   loadMore: document.getElementById('load-more'),
@@ -30,86 +50,131 @@ const dom = {
   validation: document.getElementById('validation'),
   validationSummary: document.getElementById('validation-summary'),
   engineStats: document.getElementById('engine-stats'),
-  statusText: document.getElementById('status-text'),
+  // resources
+  resourceCount: document.getElementById('resource-count'),
+  resourceSearch: document.getElementById('resource-search'),
+  resourceTypes: document.getElementById('resource-types'),
+  resourceList: document.getElementById('resource-list'),
+  resourceMore: document.getElementById('resource-more'),
+  resourceDetail: document.getElementById('resource-detail'),
+  resourceRefs: document.getElementById('resource-refs'),
+  resourceRefsCount: document.getElementById('resource-refs-count'),
+  // backups
+  backupsCount: document.getElementById('backups-count'),
+  backupsList: document.getElementById('backups-list'),
+  backupsRefresh: document.getElementById('backups-refresh'),
+  // workspaces
+  workspacesCount: document.getElementById('workspaces-count'),
+  workspacesList: document.getElementById('workspaces-list'),
+  workspaceCreate: document.getElementById('workspace-create'),
+  workspaceLabel: document.getElementById('workspace-label'),
+  workspacesRefresh: document.getElementById('workspaces-refresh'),
+  // modal
+  modal: document.getElementById('profiles-modal'),
+  profilesList: document.getElementById('profiles-list'),
+  profileForm: document.getElementById('profile-add'),
+  profilePath: document.getElementById('profile-path'),
+  profileLabel: document.getElementById('profile-label'),
+  profilesClose: document.getElementById('profiles-close'),
+  profilesValidate: document.getElementById('profiles-validate'),
 };
 
-/* ------------------------------------------------------------------ */
-/* DOM helpers                                                        */
-/* ------------------------------------------------------------------ */
-
-function el(tag, attrs = {}, children = []) {
-  const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs)) {
-    if (value === null || value === undefined || value === false) continue;
-    if (key === 'class') node.className = value;
-    else if (key === 'text') node.textContent = value;
-    else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2), value);
-    else node.setAttribute(key, value);
-  }
-  for (const child of [].concat(children)) {
-    if (child === null || child === undefined) continue;
-    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
-  }
-  return node;
+function setStatus(text) {
+  dom.statusText.textContent = text;
 }
 
-const SLOT_LABEL = {
-  body: 'Cuerpo',
-  head: 'Cabeza',
-  hand: 'Manos',
-  foot: 'Pies',
-  horse: 'Montura',
-  shield: 'Escudo',
-  goods: 'Mercancía',
-};
+const outfits = createOutfitsView({
+  api,
+  state,
+  dom: {
+    itemCount: dom.itemCount,
+    itemList: dom.itemList,
+    loadMore: dom.loadMore,
+    search: dom.search,
+    slotFilters: dom.slotFilters,
+    detail: dom.detail,
+    validation: dom.validation,
+    validationSummary: dom.validationSummary,
+  },
+  setStatus,
+  onSummary: (summary) => {
+    state.summary = summary;
+    renderEngineStats();
+  },
+});
 
-const CATEGORY_LABEL = {
-  armor: 'Armadura',
-  clothing: 'Ropa',
-  cape: 'Capa',
-  other: 'Otro',
-};
+const resources = createResourcesView({
+  api,
+  state,
+  dom: {
+    count: dom.resourceCount,
+    search: dom.resourceSearch,
+    types: dom.resourceTypes,
+    list: dom.resourceList,
+    more: dom.resourceMore,
+    detail: dom.resourceDetail,
+    refs: dom.resourceRefs,
+    refsCount: dom.resourceRefsCount,
+  },
+  setStatus,
+  openItem,
+});
 
-/** Warband stores spaces as `_`; show readable names without touching ids. */
-function displayName(name) {
-  return String(name).replace(/_/g, ' ');
-}
+const backups = createBackupsView({
+  api,
+  dom: { count: dom.backupsCount, list: dom.backupsList, refresh: dom.backupsRefresh },
+  setStatus,
+});
 
-function badge(text, tone = '') {
-  return el('span', { class: `badge ${tone}`.trim(), text });
-}
+const workspaces = createWorkspacesView({
+  api,
+  state,
+  dom: {
+    count: dom.workspacesCount,
+    list: dom.workspacesList,
+    create: dom.workspaceCreate,
+    label: dom.workspaceLabel,
+    refresh: dom.workspacesRefresh,
+  },
+  setStatus,
+});
+
+const installations = createInstallations({
+  api,
+  dom: {
+    modal: dom.modal,
+    list: dom.profilesList,
+    form: dom.profileForm,
+    pathInput: dom.profilePath,
+    labelInput: dom.profileLabel,
+    close: dom.profilesClose,
+    validateAll: dom.profilesValidate,
+  },
+  setStatus,
+  onChanged: refreshAll,
+});
 
 /* ------------------------------------------------------------------ */
-/* Boot                                                               */
+/* Shell rendering                                                    */
 /* ------------------------------------------------------------------ */
 
-async function init() {
-  setStatus('Conectando con el motor…');
-  try {
-    state.status = await api.status();
-  } catch (error) {
-    renderFatal(error);
-    return;
-  }
-
-  renderInstallation(state.status);
-  renderModules();
-  renderEngineStats();
-
-  if (!state.status.ok) {
-    setStatus('No se detectó una instalación de Warband.');
-    renderModuleError(
-      'No se encontró Mount & Blade: Warband',
-      'El motor no pudo localizar `mb_warband.exe` y `Modules`. Ajusta `config/app.json` o define la variable `WARBAND_DIR`.',
-    );
-    return;
-  }
-
-  await loadModule(state.moduleId);
+function renderProfiles() {
+  const profiles = state.status?.profiles?.profiles ?? [];
+  const activeId = state.status?.profiles?.activeId ?? null;
+  dom.profileSelect.replaceChildren(
+    ...(profiles.length
+      ? profiles.map((profile) => el('option', {
+          value: profile.id,
+          text: `${profile.label}${profile.valid ? '' : ' (inválida)'}`,
+        }))
+      : [el('option', { value: '', text: 'Sin instalaciones' })]),
+  );
+  dom.profileSelect.disabled = profiles.length === 0;
+  if (activeId) dom.profileSelect.value = activeId;
 }
 
-function renderInstallation(status) {
-  const installation = status.installation;
+function renderInstallation() {
+  const installation = state.status?.installation;
   if (installation) {
     dom.installPill.className = 'pill is-ok';
     dom.installPill.textContent = `Warband ${installation.version ?? '?'} · ${installation.moduleCount} módulos`;
@@ -117,28 +182,23 @@ function renderInstallation(status) {
   } else {
     dom.installPill.className = 'pill is-bad';
     dom.installPill.textContent = 'Sin instalación';
-    dom.installPill.title = (status.candidates ?? []).map((c) => c.path).join('\n');
+    dom.installPill.title = (state.status?.candidates ?? []).map((candidate) => candidate.path).join('\n');
   }
 }
 
 function renderModules() {
   const modules = state.status?.modules ?? [];
+  if (modules.length && !modules.some((module) => module.id === state.moduleId)) {
+    state.moduleId = modules[0].id;
+  }
   dom.moduleSelect.replaceChildren(
-    ...modules.map((module) =>
-      el('option', {
-        value: module.id,
-        text: `${module.id}${module.capabilities?.singlePlayer ? '' : ' (MP)'}`,
-      }),
-    ),
+    ...modules.map((module) => el('option', {
+      value: module.id,
+      text: `${module.id}${module.capabilities?.singlePlayer ? '' : ' (MP)'}`,
+    })),
   );
   dom.moduleSelect.disabled = modules.length === 0;
   if (modules.some((module) => module.id === state.moduleId)) dom.moduleSelect.value = state.moduleId;
-  dom.moduleSelect.addEventListener('change', async () => {
-    state.moduleId = dom.moduleSelect.value;
-    state.selectedId = null;
-    state.detail = null;
-    await loadModule(state.moduleId);
-  });
 }
 
 function renderEngineStats() {
@@ -161,340 +221,147 @@ function renderEngineStats() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Module + items                                                     */
-/* ------------------------------------------------------------------ */
-
-async function loadModule(moduleId) {
-  setStatus(`Cargando ${moduleId}…`);
-  showDetailEmpty('Cargando catálogo de prendas…');
-  try {
-    state.summary = await api.summary(moduleId);
-    state.items = [];
-    state.total = 0;
-    state.offset = 0;
-    renderEngineStats();
-    await loadItems(false);
-    setStatus(`${state.summary.items.armor} prendas · ${state.summary.items.total} ítems en ${moduleId}`);
-  } catch (error) {
-    handleError(error, 'No se pudo cargar el módulo');
-  }
+function updateHint() {
+  dom.viewHint.textContent = `${state.moduleId} · ${state.view}`;
 }
 
-async function loadItems(append) {
-  if (state.loading) return;
-  state.loading = true;
-  dom.loadMore.disabled = true;
-  try {
-    const page = await api.items({
-      module: state.moduleId,
-      slot: state.slot,
-      category: state.category,
-      q: state.query,
-      limit: state.limit,
-      offset: append ? state.offset : 0,
-    });
-    state.total = page.total;
-    state.offset = append ? state.offset + page.items.length : page.items.length;
-    state.items = append ? [...state.items, ...page.items] : page.items;
-    renderItemList();
-    dom.itemCount.textContent = `${state.total}`;
-    dom.loadMore.hidden = state.offset >= state.total;
-    dom.loadMore.disabled = false;
-  } catch (error) {
-    handleError(error, 'No se pudo cargar la lista de ítems');
-  } finally {
-    state.loading = false;
-  }
+/* ------------------------------------------------------------------ */
+/* Views                                                              */
+/* ------------------------------------------------------------------ */
+
+async function loadCurrentView() {
+  if (!state.status?.ok) return;
+  if (state.view === 'outfits') await outfits.loadModule(state.moduleId);
+  else if (state.view === 'resources') await resources.load(state.moduleId);
+  else if (state.view === 'workspaces') await workspaces.load();
+  else await backups.load();
+  updateHint();
 }
 
-function renderItemList() {
-  if (state.items.length === 0) {
-    dom.itemList.replaceChildren(
-      el('p', { class: 'muted', text: 'No hay ítems que coincidan con el filtro.' }),
-    );
+async function switchView(view) {
+  state.view = view;
+  for (const tab of dom.tabs) tab.classList.toggle('is-active', tab.dataset.view === view);
+  for (const [name, node] of Object.entries(dom.views)) node.hidden = name !== view;
+  if (view === 'outfits') {
+    if (!state.summary) await outfits.loadModule(state.moduleId);
+  } else if (view === 'resources') {
+    await resources.load(state.moduleId);
+  } else if (view === 'workspaces') {
+    await workspaces.load();
+  } else {
+    await backups.load();
+  }
+  updateHint();
+}
+
+function openItem(id) {
+  switchView('outfits').then(() => outfits.selectItem(id));
+}
+
+async function refreshAll() {
+  try {
+    state.status = await api.status();
+  } catch (error) {
+    renderFatal(error);
     return;
   }
-  const rows = state.items.map((item) => {
-    const armorValue = item.slot === 'head' ? item.armor.head : item.slot === 'foot' ? item.armor.leg : item.armor.body;
-    return el(
-      'button',
-      {
-        class: `item-row${item.id === state.selectedId ? ' is-selected' : ''}`,
-        type: 'button',
-        onclick: () => selectItem(item.id),
-      },
-      [
-        el('span', { class: 'name', text: displayName(item.name) }),
-        el('span', { class: 'id', text: item.id }),
-        el('span', { class: 'meta' }, [
-          el('span', { class: 'armor', text: armorValue ? String(armorValue) : '·' }),
-          el('span', { class: 'slot', text: SLOT_LABEL[item.slot] ?? item.slot }),
-        ]),
-      ],
-    );
-  });
-  dom.itemList.replaceChildren(...rows);
-}
+  renderProfiles();
+  renderModules();
+  renderInstallation();
+  renderEngineStats();
 
-async function selectItem(id) {
-  if (state.selectedId === id) return;
-  state.selectedId = id;
-  for (const row of dom.itemList.querySelectorAll('.item-row')) {
-    row.classList.toggle('is-selected', row.querySelector('.id')?.textContent === id);
+  if (!state.status.ok) {
+    dom.detail.replaceChildren(
+      el('div', { class: 'empty-state' }, [
+        el('div', { class: 'empty-icon', text: '⚠' }),
+        el('h2', { text: 'No se encontró Mount & Blade: Warband' }),
+        el('p', { text: 'Añade una instalación con el botón ⚙ o define WARBAND_DIR.' }),
+      ]),
+    );
+    setStatus('No se detectó una instalación de Warband.');
+    return;
   }
-  showDetailEmpty('Resolviendo cadena de recursos…');
-  try {
-    state.detail = await api.item(state.moduleId, id);
-    renderDetail(state.detail);
-    renderValidation(state.detail.chain);
-    setStatus(`Cadena resuelta: ${state.detail.chain.meshes.length} malla(s)`);
-  } catch (error) {
-    handleError(error, 'No se pudo resolver el ítem');
-  }
+  await loadCurrentView();
 }
 
 /* ------------------------------------------------------------------ */
-/* Detail rendering                                                   */
+/* Wiring                                                             */
 /* ------------------------------------------------------------------ */
 
-function showDetailEmpty(message) {
-  dom.detail.replaceChildren(
-    el('div', { class: 'empty-state' }, [
-      el('div', { class: 'empty-icon', text: '◈' }),
-      el('h2', { text: 'Cargando' }),
-      el('p', { text: message }),
-    ]),
-  );
-}
+function wireShell() {
+  dom.tabs.forEach((tab) => tab.addEventListener('click', () => switchView(tab.dataset.view)));
 
-function renderDetail({ item, chain, flags, capabilities }) {
-  const armorValue = item.slot === 'head' ? item.headArmor : item.slot === 'foot' ? item.legArmor : item.bodyArmor;
-  const header = el('div', { class: 'detail-header' }, [
-    el('div', { class: 'detail-title' }, [
-      el('h2', { text: displayName(item.name) }),
-      el('div', { class: 'item-id', text: item.id }),
-      el('div', { class: 'badges' }, [
-        badge(SLOT_LABEL[item.slot] ?? item.slot, 'accent'),
-        badge(CATEGORY_LABEL[item.category] ?? item.category),
-        badge(`${chain.meshes.length} malla${chain.meshes.length === 1 ? '' : 's'}`),
-        chain.summary.errors > 0
-          ? badge(`${chain.summary.errors} error${chain.summary.errors === 1 ? '' : 'es'}`, 'bad')
-          : badge('Cadena válida', 'ok'),
-      ]),
-    ]),
-  ]);
-
-  const stats = el('div', { class: 'stats' }, [
-    stat('Protección', armorValue, true),
-    stat('Valor', item.value),
-    stat('Peso', item.weight.toFixed(1)),
-    stat('Dificultad', item.difficulty),
-    stat('Cabeza', item.headArmor),
-    stat('Cuerpo', item.bodyArmor),
-    stat('Piernas', item.legArmor),
-  ]);
-
-  const chainSection = el('div', {}, [
-    el('h3', { class: 'section-title', text: 'Cadena de recursos' }),
-    el('div', { class: 'chain' }, chain.meshes.map(renderMeshNode)),
-  ]);
-
-  dom.detail.replaceChildren(header, stats, renderFlags(flags, capabilities), chainSection);
-}
-
-function flagChip(symbol, tone = '') {
-  if (!symbol) return null;
-  return el('span', {
-    class: `flag ${tone}`.trim(),
-    text: symbol.name,
-    title: symbol.aliases?.length ? `Alias: ${symbol.aliases.join(', ')}` : symbol.hex,
+  dom.moduleSelect.addEventListener('change', async () => {
+    state.moduleId = dom.moduleSelect.value;
+    state.selectedId = null;
+    state.detail = null;
+    state.summary = null;
+    await loadCurrentView();
   });
-}
 
-function renderFlags(flags, capabilities) {
-  const chips = [];
-  if (flags?.type) chips.push(flagChip(flags.type, 'type'));
-  if (flags?.attachment) chips.push(flagChip(flags.attachment, 'field'));
-  for (const flag of flags?.flags ?? []) chips.push(flagChip(flag));
-  if (flags?.unknownHex) chips.push(el('span', { class: 'flag unknown', text: `unknown ${flags.unknownHex}` }));
-
-  const capChips = [];
-  if (capabilities?.carry) capChips.push(flagChip(capabilities.carry, 'field'));
-  if (capabilities?.shoot) capChips.push(flagChip(capabilities.shoot, 'field'));
-  for (const flag of capabilities?.flags ?? []) capChips.push(flagChip(flag));
-  if (capabilities?.unknownHex) capChips.push(el('span', { class: 'flag unknown', text: `unknown ${capabilities.unknownHex}` }));
-
-  return el('details', { class: 'flags-box', open: true }, [
-    el('summary', {}, [
-      el('span', { text: 'Flags y capacidades' }),
-      el('span', { class: 'flags-hex mono', text: `${flags?.hex ?? ''} · ${capabilities?.hex ?? ''}` }),
-    ]),
-    el('div', { class: 'flag-group' }, [
-      el('span', { class: 'flag-label', text: 'Item' }),
-      el('div', { class: 'flag-grid' }, chips),
-    ]),
-    el('div', { class: 'flag-group' }, [
-      el('span', { class: 'flag-label', text: 'Capabilities' }),
-      el('div', { class: 'flag-grid' }, capChips.length ? capChips : [el('span', { class: 'hint', text: 'Sin capacidades' })]),
-    ]),
-  ]);
-}
-
-function stat(label, value, accent = false) {
-  return el('div', { class: 'stat' }, [
-    el('div', { class: 'label', text: label }),
-    el('div', { class: `value${accent ? ' accent' : ''}`, text: String(value) }),
-  ]);
-}
-
-function renderMeshNode(mesh) {
-  const geometry = mesh.geometry;
-  const parts = [];
-  if (geometry.vertexCount) parts.push(`${geometry.vertexCount} vértices`);
-  if (geometry.faceCount) parts.push(`${geometry.faceCount} caras`);
-  if (geometry.lodLevels.length) parts.push(`LOD ${geometry.lodLevels.join('/')}`);
-  if (geometry.pieceCount) parts.push(`${geometry.pieceCount} piezas`);
-  if (mesh.pair) parts.push('par _R');
-
-  const head = el('div', { class: 'node-head' }, [
-    el('span', { class: 'node-kind', text: 'Malla' }),
-    el('span', { class: 'node-name', text: mesh.name }),
-    el('span', { class: 'node-sub', text: parts.join(' · ') || (mesh.resolved ? 'sin geometría' : 'no encontrada') }),
-  ]);
-
-  const body = [el('div', { class: 'hint', text: mesh.brfFiles.map(shortPath).join('  ·  ') || 'sin BRF' })];
-
-  if (mesh.material) {
-    body.push(
-      el('div', { class: 'texture-row' }, [
-        el('span', { class: 'texture-role', text: 'Material' }),
-        el('span', { class: 'texture-name', text: mesh.material.name }),
-        el('span', { class: 'texture-dims', text: mesh.material.shader ?? '' }),
-      ]),
-    );
-    for (const texture of mesh.material.textures) {
-      body.push(renderTextureRow(texture));
+  dom.profileSelect.addEventListener('change', async () => {
+    const id = dom.profileSelect.value;
+    if (!id) return;
+    setStatus('Activando instalación…');
+    try {
+      await api.activateProfile(id);
+      await refreshAll();
+    } catch (error) {
+      setStatus(`No se pudo activar la instalación: ${error instanceof ApiError ? error.message : String(error)}`);
     }
-  } else if (mesh.resolved) {
-    body.push(el('div', { class: 'hint', text: 'Sin material resuelto.' }));
-  }
+  });
 
-  return el('div', { class: 'node' }, [head, el('div', { class: 'node-body' }, body)]);
-}
-
-function renderTextureRow(texture) {
-  const ok = texture.declared && texture.file?.exists && !texture.issues.length;
-  const dims = texture.dds ? `${texture.dds.width}×${texture.dds.height} ${texture.dds.format}` : 'sin archivo';
-  return el('div', { class: 'texture-row' }, [
-    el('span', { class: 'texture-role', text: texture.role }),
-    el('span', { class: `texture-name${ok ? '' : ' texture-missing'}`, text: texture.name }),
-    el('span', { class: 'texture-dims', text: dims }),
-  ]);
-}
-
-function shortPath(filePath) {
-  const parts = String(filePath).split(/[\\/]/);
-  return parts.slice(-2).join('/');
-}
-
-/* ------------------------------------------------------------------ */
-/* Validation                                                         */
-/* ------------------------------------------------------------------ */
-
-function renderValidation(chain) {
-  const { issues, summary } = chain;
-  dom.validationSummary.textContent = `${summary.errors}E · ${summary.warnings}W · ${summary.infos}I`;
-
-  if (issues.length === 0) {
-    dom.validation.replaceChildren(
-      el('div', { class: 'ok-state' }, [
-        el('span', { class: 'mark-ok', text: '✓' }),
-        el('div', { text: 'Sin incidencias detectadas.' }),
-        el('div', { class: 'hint', text: 'Mallas, materiales, texturas y archivos DDS resueltos.' }),
-      ]),
-    );
-    return;
-  }
-
-  dom.validation.replaceChildren(
-    ...issues.map((entry) =>
-      el('div', { class: `issue ${entry.severity}` }, [
-        el('div', { class: 'code', text: `${entry.code} · ${entry.severity}` }),
-        el('div', { class: 'title', text: entry.title }),
-        el('div', { class: 'message', text: entry.message }),
-      ]),
-    ),
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Errors + status                                                    */
-/* ------------------------------------------------------------------ */
-
-function setStatus(text) {
-  dom.statusText.textContent = text;
-}
-
-function handleError(error, context) {
-  const message = error instanceof ApiError ? error.message : String(error);
-  setStatus(`${context}: ${message}`);
-  if (error instanceof ApiError && error.code === 'INSTALLATION_NOT_FOUND') {
-    renderModuleError('Sin instalación', message);
-    return;
-  }
-  showDetailEmpty(`${context}: ${message}`);
-}
-
-function renderModuleError(title, message) {
-  dom.detail.replaceChildren(
-    el('div', { class: 'empty-state' }, [
-      el('div', { class: 'empty-icon', text: '⚠' }),
-      el('h2', { text: title }),
-      el('p', { text: message }),
-      el('p', { class: 'hint' }, [
-        'Rutas probadas: ',
-        ...(state.status?.candidates ?? []).slice(0, 6).map((candidate) => el('div', { class: 'mono', text: candidate.path })),
-      ]),
-    ]),
-  );
+  dom.manageProfiles.addEventListener('click', () => installations.open());
 }
 
 function renderFatal(error) {
   dom.installPill.className = 'pill is-bad';
   dom.installPill.textContent = 'Servidor no disponible';
-  renderModuleError('No se pudo contactar con el servidor local', String(error));
+  dom.detail.replaceChildren(
+    el('div', { class: 'empty-state' }, [
+      el('div', { class: 'empty-icon', text: '⚠' }),
+      el('h2', { text: 'No se pudo contactar con el servidor local' }),
+      el('p', { text: String(error) }),
+    ]),
+  );
   setStatus('Error de conexión con el backend.');
 }
 
-/* ------------------------------------------------------------------ */
-/* Filters                                                            */
-/* ------------------------------------------------------------------ */
+async function init() {
+  setStatus('Conectando con el motor…');
+  outfits.init();
+  resources.init();
+  backups.init();
+  workspaces.init();
+  installations.init();
+  wireShell();
 
-function wireFilters() {
-  let timer = null;
-  dom.search.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      state.query = dom.search.value.trim();
-      state.offset = 0;
-      loadItems(false);
-    }, 160);
-  });
+  try {
+    state.status = await api.status();
+  } catch (error) {
+    renderFatal(error);
+    return;
+  }
 
-  dom.slotFilters.addEventListener('click', (event) => {
-    const button = event.target.closest('.chip');
-    if (!button) return;
-    for (const chip of dom.slotFilters.querySelectorAll('.chip')) chip.classList.remove('is-active');
-    button.classList.add('is-active');
-    state.slot = button.dataset.slot ?? '';
-    state.category = button.dataset.category ?? '';
-    state.offset = 0;
-    loadItems(false);
-  });
+  renderProfiles();
+  renderModules();
+  renderInstallation();
+  renderEngineStats();
+  updateHint();
 
-  dom.loadMore.addEventListener('click', () => loadItems(true));
+  if (!state.status.ok) {
+    setStatus('No se detectó una instalación de Warband. Usa ⚙ para añadir una.');
+    dom.detail.replaceChildren(
+      el('div', { class: 'empty-state' }, [
+        el('div', { class: 'empty-icon', text: '⚠' }),
+        el('h2', { text: 'No se encontró Mount & Blade: Warband' }),
+        el('p', { text: 'El motor no localizó mb_warband.exe y Modules. Añade una instalación con ⚙.' }),
+      ]),
+    );
+    return;
+  }
+
+  await outfits.loadModule(state.moduleId);
 }
 
-wireFilters();
 init();

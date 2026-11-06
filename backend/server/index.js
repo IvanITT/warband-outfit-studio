@@ -53,9 +53,20 @@ function statusFor(code) {
   switch (code) {
     case 'BAD_REQUEST':
       return 400;
+    case 'INVALID_INSTALLATION':
+    case 'CONFIRMATION_REQUIRED':
+    case 'PATH_OUTSIDE_BACKUP':
+      return 400;
+    case 'BACKUP_CORRUPT':
+      return 409;
     case 'NOT_FOUND':
     case 'MODULE_NOT_FOUND':
     case 'ITEM_NOT_FOUND':
+    case 'PROFILE_NOT_FOUND':
+    case 'MESH_NOT_FOUND':
+    case 'MATERIAL_NOT_FOUND':
+    case 'TEXTURE_NOT_FOUND':
+    case 'SHADER_NOT_FOUND':
       return 404;
     case 'INSTALLATION_NOT_FOUND':
       return 503;
@@ -179,7 +190,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const started = await startServer();
   console.log('');
-  console.log('  WARBand Outfit Studio — Phase 1');
+  console.log('  WARBand Outfit Studio — Phase 2');
   console.log(`  ${started.url}`);
   if (!started.engine.installation) {
     console.log('  WARNING: no Warband installation detected. See /api/status for candidates.');

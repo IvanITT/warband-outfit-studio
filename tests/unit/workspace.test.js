@@ -59,3 +59,14 @@ test('requires an existing workspace', async () => {
   const { store } = await makeStore();
   await assert.rejects(() => store.writeFile('missing', 'a.txt', Buffer.from('x')));
 });
+
+test('removes a workspace only with its id as confirmation', async () => {
+  const { store } = await makeStore();
+  const workspace = await store.create({ label: 'Delete Me', moduleId: 'Native' });
+  await store.writeFile(workspace.id, 'a.txt', Buffer.from('x'));
+
+  await assert.rejects(() => store.remove(workspace.id, 'wrong'), /Confirmation required/);
+  const result = await store.remove(workspace.id, workspace.id);
+  assert.equal(result.removed, workspace.id);
+  assert.equal((await store.list()).length, 0);
+});

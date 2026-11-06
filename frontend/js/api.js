@@ -50,4 +50,36 @@ export const api = {
   validate: (module, ids) => request('/api/validate', { method: 'POST', body: { module, ids } }),
   projects: () => request('/api/projects'),
   createProject: (body) => request('/api/projects', { method: 'POST', body }),
+
+  /* installation profiles */
+  profiles: () => request('/api/profiles'),
+  addProfile: (body) => request('/api/profiles', { method: 'POST', body }),
+  activateProfile: (id) => request(`/api/profiles/${encodeURIComponent(id)}/activate`, { method: 'POST' }),
+  removeProfile: (id, confirm) => request(
+    `/api/profiles/${encodeURIComponent(id)}?confirm=${encodeURIComponent(confirm)}`,
+    { method: 'DELETE' },
+  ),
+  validateProfiles: () => request('/api/profiles/validate', { method: 'POST' }),
+
+  /* asset index */
+  resources: ({ module, type, q, limit = 100, offset = 0 }) => {
+    const params = new URLSearchParams({ module, type, limit: String(limit), offset: String(offset) });
+    if (q) params.set('q', q);
+    return request(`/api/resources?${params}`);
+  },
+  resource: (module, type, name) => request(
+    `/api/resources/${type}/${encodeURIComponent(name)}?module=${encodeURIComponent(module)}`,
+  ),
+
+  /* backups */
+  backups: () => request('/api/backups'),
+  restoreBackup: (body) => request('/api/backups/restore', { method: 'POST', body }),
+
+  /* workspaces */
+  workspaces: () => request('/api/workspaces'),
+  createWorkspace: (body) => request('/api/workspaces', { method: 'POST', body }),
+  removeWorkspace: (id, confirm) => request(
+    `/api/workspaces/${encodeURIComponent(id)}?confirm=${encodeURIComponent(confirm)}`,
+    { method: 'DELETE' },
+  ),
 };

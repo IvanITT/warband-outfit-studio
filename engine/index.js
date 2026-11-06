@@ -9,13 +9,15 @@
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { listModules, findModule } from './modules/moduleRegistry.js';
-import { detectInstallation } from './installation/detect.js';
+import { detectInstallation, describeInstallation } from './installation/detect.js';
+import { ProfileStore } from './installation/profileStore.js';
 import { parseItemKindsFile } from './items/itemKinds.js';
 import { decodeItemFlags, decodeCapabilities } from './items/itemFlags.js';
 import { createBrfIndex } from './resources/brfIndex.js';
 import { createTextureResolver } from './resources/textureResolver.js';
 import { parseBrf, serializeBrf, updateMesh } from './resources/brf.js';
 import { readMeshGeometry } from './resources/geometry.js';
+import { resolveTextureDetails } from './resources/textureDetails.js';
 import { WorkspaceStore } from './resources/workspace.js';
 import { parseDdsFile } from './textures/dds.js';
 import { resolveItemChain, validateItems } from './validation/validate.js';
@@ -33,6 +35,24 @@ import { resolveCaseInsensitive } from './util/fsx.js';
  * @property {number} buildMs
  */
 
+/**
+ * @param {any} entry MeshEntry from the BRF index.
+ */
+function summarizeMeshEntry(entry) {
+  return {
+    name: entry.name,
+    brf: entry.brf,
+    material: entry.material,
+    vertexVersion: entry.vertexVersion,
+    vertexCount: entry.vertexCount,
+    faceCount: entry.faceCount,
+    frameCount: entry.frameCount,
+    rigged: entry.rigged,
+    lodLevel: entry.nameInfo.lodLevel,
+    pieceIndex: entry.nameInfo.pieceIndex,
+  };
+}
+
 export class WarbandEngine {
   /** @param {{ projectRoot: string, installationPath?: string, cache?: boolean }} options */
   constructor(options) {
@@ -49,24 +69,114 @@ export class WarbandEngine {
     this.moduleData = new Map();
     this.projects = new ProjectStore({ rootDir: options.projectRoot });
     this.workspaces = new WorkspaceStore({ rootDir: options.projectRoot });
+    this.profiles = new ProfileStore({ rootDir: options.projectRoot });
     this.initialized = false;
     this.initMs = 0;
   }
 
   async init() {
     const started = performance.now();
-    const detection = await detectInstallation({
-      projectRoot: this.projectRoot,
-      explicitPath: this.installationPath,
-    });
-    this.installation = detection.installation;
-    this.candidates = detection.candidates;
-    this.modules = detection.installation ? await listModules(detection.installation) : [];
+    await this.profiles.init();
+
+    let active = this.profiles.active();
+    if (!active) {
+      const detection = await detectInstallation({
+        projectRoot: this.projectRoot,
+        explicitPath: this.installationPath,
+      });
+      this.candidates = detection.candidates;
+      if (detection.installation) {
+        const { profile } = await this.profiles.add(detection.installation.rootPath, 'Warband');
+        await this.profiles.activate(profile.id);
+        active = this.profiles.active();
+      }
+    } else {
+      this.candidates = this.profiles.list().map((profile) => ({ path: profile.path, valid: profile.valid }));
+    }
+
+    if (active) {
+      const installation = await describeInstallation(active.path);
+      if (installation) {
+        this.installation = installation;
+        this.modules = await listModules(installation);
+      } else {
+        await this.profiles.validateAll();
+        this.candidates = this.profiles.list().map((profile) => ({ path: profile.path, valid: profile.valid }));
+      }
+    }
+
     await this.projects.init();
     await this.workspaces.init();
     this.initMs = Math.round(performance.now() - started);
     this.initialized = true;
     return this;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Installation profiles                                             */
+  /* ---------------------------------------------------------------- */
+
+  getProfiles() {
+    return {
+      activeId: this.profiles.doc.activeId,
+      profiles: this.profiles.list(),
+    };
+  }
+
+  /** @param {{ path: string, label?: string }} input */
+  async addProfile(input) {
+    const result = await this.profiles.add(input.path, input.label ?? '');
+    if (this.profiles.doc.activeId === result.profile.id) {
+      await this.activateProfile(result.profile.id);
+    }
+    return { ...result, profiles: this.getProfiles() };
+  }
+
+  /** @param {string} id */
+  async activateProfile(id) {
+    const profile = await this.profiles.activate(id);
+    const installation = await describeInstallation(profile.path);
+    if (!installation) {
+      // @ts-expect-error machine-readable
+      const error = new Error(`Profile '${profile.label}' no longer points to a valid installation.`);
+      error.code = 'INVALID_INSTALLATION';
+      throw error;
+    }
+    this.installation = installation;
+    this.modules = await listModules(installation);
+    this.moduleData.clear();
+    return { profile, installation, modules: this.modules.length };
+  }
+
+  /**
+   * @param {string} id
+   * @param {string} confirm
+   */
+  async removeProfile(id, confirm) {
+    const result = await this.profiles.remove(id, confirm);
+    const active = this.profiles.active();
+    if (active) {
+      const installation = await describeInstallation(active.path);
+      this.installation = installation;
+      this.modules = installation ? await listModules(installation) : [];
+    } else {
+      this.installation = null;
+      this.modules = [];
+    }
+    this.moduleData.clear();
+    return { ...result, profiles: this.getProfiles() };
+  }
+
+  async validateProfiles() {
+    const profiles = await this.profiles.validateAll();
+    const active = this.profiles.active();
+    if (active) {
+      const installation = await describeInstallation(active.path);
+      this.installation = installation;
+      this.modules = installation ? await listModules(installation) : [];
+      this.moduleData.clear();
+    }
+    return { activeId: this.profiles.doc.activeId, profiles };
   }
 
   requireInstallation() {
@@ -240,17 +350,281 @@ export class WarbandEngine {
   }
 
   /* ---------------------------------------------------------------- */
+  /* Asset index (meshes / materials / textures / shaders)             */
+  /* ---------------------------------------------------------------- */
+
+  /** @param {string} moduleId @param {{ type?: string, q?: string, limit?: number, offset?: number }} [filter] */
+  async listResources(moduleId, filter = {}) {
+    const data = await this.getModuleData(moduleId);
+    const type = filter.type ?? 'mesh';
+    const needle = (filter.q ?? '').trim().toLowerCase();
+    const limit = Math.min(Math.max(Number(filter.limit ?? 100), 1), 500);
+    const offset = Math.max(Number(filter.offset ?? 0), 0);
+
+    /** @type {Array<{ key:string, name:string, entries:any[] }>} */
+    let groups = [];
+    if (type === 'mesh' || type === 'material' || type === 'texture') {
+      const map = type === 'mesh' ? data.brfIndex.meshes : type === 'material' ? data.brfIndex.materials : data.brfIndex.textures;
+      groups = [...map.entries()].map(([key, entries]) => ({
+        key,
+        name: entries[0].name,
+        entries,
+      }));
+    } else if (type === 'shader') {
+      groups = [...data.brfIndex.shaders.entries()].map(([key, files]) => ({
+        key,
+        name: key,
+        entries: files.map((file) => ({ brf: file })),
+      }));
+    } else {
+      const error = new Error(`Unknown resource type '${type}'.`);
+      // @ts-expect-error machine-readable
+      error.code = 'BAD_REQUEST';
+      throw error;
+    }
+
+    if (needle) groups = groups.filter((group) => group.name.toLowerCase().includes(needle));
+    groups.sort((a, b) => a.name.localeCompare(b.name));
+
+    const page = groups.slice(offset, offset + limit).map((group) => {
+      const sources = [...new Set(group.entries.map((entry) => entry.brf))];
+      if (type === 'mesh') {
+        const mesh = group.entries[0];
+        return {
+          name: mesh.name,
+          base: mesh.nameInfo.base,
+          lodLevel: mesh.nameInfo.lodLevel,
+          pieceIndex: mesh.nameInfo.pieceIndex,
+          material: mesh.material,
+          vertexVersion: mesh.vertexVersion,
+          vertexCount: mesh.vertexCount,
+          faceCount: mesh.faceCount,
+          rigged: mesh.rigged,
+          sources,
+        };
+      }
+      if (type === 'material') {
+        const material = group.entries[0];
+        return {
+          name: material.name,
+          shader: material.shader,
+          diffuseA: material.diffuseA,
+          bump: material.bump,
+          sources,
+        };
+      }
+      if (type === 'texture') {
+        const texture = group.entries[0];
+        const file = data.textures.resolve(texture.name);
+        return {
+          name: texture.name,
+          frames: texture.frames,
+          exists: file.exists,
+          sources,
+        };
+      }
+      return { name: group.name, sources };
+    });
+
+    return { type, total: groups.length, offset, limit, items: page };
+  }
+
+  /**
+   * @param {string} moduleId
+   * @param {string} type
+   * @param {string} name
+   */
+  async getResourceDetail(moduleId, type, name) {
+    const data = await this.getModuleData(moduleId);
+    const context = { brfIndex: data.brfIndex, textures: data.textures, ddsCache: data.ddsCache };
+
+    if (type === 'mesh') {
+      const resolution = data.brfIndex.resolveMesh(name);
+      if (!resolution.exists) {
+        const error = new Error(`Mesh '${name}' was not found.`);
+        // @ts-expect-error machine-readable
+        error.code = 'MESH_NOT_FOUND';
+        throw error;
+      }
+      const primary = resolution.direct[0] ?? resolution.base[0] ?? resolution.pieces[0];
+      const materialEntries = data.brfIndex.resolveMaterial(primary.material);
+      const material = materialEntries[0] ?? null;
+      const textures = {};
+      if (material) {
+        for (const role of ['diffuseA', 'diffuseB', 'bump', 'enviro', 'spec']) {
+          const value = material[role];
+          if (value && value !== 'none') textures[role] = await resolveTextureDetails(context, value);
+        }
+      }
+      const base = resolution.info.base.toLowerCase();
+      const usedByItems = data.items.items
+        .filter((item) => item.meshes.some((ref) => {
+          const lower = ref.name.toLowerCase();
+          return lower === base || lower.startsWith(`${base}.`);
+        }))
+        .slice(0, 100)
+        .map((item) => ({ id: item.id, name: item.name, slot: item.slot }));
+
+      return {
+        type,
+        name,
+        detail: {
+          family: {
+            base: resolution.base.map(summarizeMeshEntry),
+            lods: resolution.lods.map(summarizeMeshEntry),
+            pieces: resolution.pieces.map(summarizeMeshEntry),
+          },
+          primary: summarizeMeshEntry(primary),
+          material: material
+            ? {
+                name: material.name,
+                shader: material.shader,
+                flags: material.flags,
+                specular: material.specular,
+                color: [material.r, material.g, material.b],
+                brf: material.brf,
+              }
+            : null,
+          textures,
+          usedByItems,
+        },
+      };
+    }
+
+    if (type === 'material') {
+      const entries = data.brfIndex.resolveMaterial(name);
+      if (entries.length === 0) {
+        const error = new Error(`Material '${name}' was not found.`);
+        // @ts-expect-error machine-readable
+        error.code = 'MATERIAL_NOT_FOUND';
+        throw error;
+      }
+      const material = entries[0];
+      const textures = {};
+      for (const role of ['diffuseA', 'diffuseB', 'bump', 'enviro', 'spec']) {
+        const value = material[role];
+        if (value && value !== 'none') textures[role] = await resolveTextureDetails(context, value);
+      }
+      const meshes = [];
+      for (const list of data.brfIndex.meshes.values()) {
+        for (const mesh of list) {
+          if (mesh.material.toLowerCase() === name.toLowerCase()) meshes.push(summarizeMeshEntry(mesh));
+        }
+      }
+      return {
+        type,
+        name,
+        detail: {
+          material: {
+            name: material.name,
+            shader: material.shader,
+            flags: material.flags,
+            specular: material.specular,
+            color: [material.r, material.g, material.b],
+            brf: material.brf,
+            sources: [...new Set(entries.map((entry) => entry.brf))],
+          },
+          textures,
+          meshes: meshes.slice(0, 200),
+        },
+      };
+    }
+
+    if (type === 'texture') {
+      const details = await resolveTextureDetails(context, name);
+      if (!details.declared && !details.file.exists) {
+        const error = new Error(`Texture '${name}' was not found.`);
+        // @ts-expect-error machine-readable
+        error.code = 'TEXTURE_NOT_FOUND';
+        throw error;
+      }
+      const base = name.replace(/\.dds$/i, '').toLowerCase();
+      const materials = [];
+      for (const list of data.brfIndex.materials.values()) {
+        for (const material of list) {
+          const referenced = ['diffuseA', 'diffuseB', 'bump', 'enviro', 'spec'].some(
+            (role) => String(material[role]).replace(/\.dds$/i, '').toLowerCase() === base,
+          );
+          if (referenced) {
+            materials.push({ name: material.name, shader: material.shader, brf: material.brf });
+          }
+        }
+      }
+      return { type, name, detail: { ...details, materials: materials.slice(0, 200) } };
+    }
+
+    if (type === 'shader') {
+      const files = data.brfIndex.shaders.get(name.toLowerCase());
+      if (!files) {
+        const error = new Error(`Shader '${name}' was not found.`);
+        // @ts-expect-error machine-readable
+        error.code = 'SHADER_NOT_FOUND';
+        throw error;
+      }
+      const materials = [];
+      for (const list of data.brfIndex.materials.values()) {
+        for (const material of list) {
+          if (material.shader.toLowerCase() === name.toLowerCase()) {
+            materials.push({ name: material.name, brf: material.brf });
+          }
+        }
+      }
+      return { type, name, detail: { sources: [...new Set(files)], materials: materials.slice(0, 200) } };
+    }
+
+    const error = new Error(`Unknown resource type '${type}'.`);
+    // @ts-expect-error machine-readable
+    error.code = 'BAD_REQUEST';
+    throw error;
+  }
+
+  /* ---------------------------------------------------------------- */
   /* Workspaces (the only write target)                                */
   /* ---------------------------------------------------------------- */
 
-  /** @param {string} label */
-  async createWorkspace(label) {
+  /** @param {string} label @param {{ reuse?: boolean, moduleId?: string }} [options] */
+  async createWorkspace(label, options = {}) {
     this.requireInstallation();
-    return this.workspaces.create({ label });
+    if (options.reuse) return this.workspaces.ensure(label);
+    return this.workspaces.create({ label, moduleId: options.moduleId });
+  }
+
+  /** @param {string} id @param {string} confirm */
+  async removeWorkspace(id, confirm) {
+    return this.workspaces.remove(id, confirm);
   }
 
   async listWorkspaces() {
     return this.workspaces.list();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Backups (project + workspace)                                     */
+  /* ---------------------------------------------------------------- */
+
+  async listBackups() {
+    const [projects, workspaces] = await Promise.all([
+      this.projects.listBackups(),
+      this.workspaces.listBackups(),
+    ]);
+    return { projects, workspaces };
+  }
+
+  /**
+   * @param {string} backupPath
+   * @param {string} confirm
+   */
+  async restoreProjectBackup(backupPath, confirm) {
+    return this.projects.restoreBackup(backupPath, confirm);
+  }
+
+  /**
+   * @param {string} workspaceId
+   * @param {string} backupPath
+   * @param {string} confirm
+   */
+  async restoreWorkspaceBackup(workspaceId, backupPath, confirm) {
+    return this.workspaces.restoreBackup(workspaceId, backupPath, confirm);
   }
 
   /**
@@ -394,6 +768,7 @@ export class WarbandEngine {
           }
         : null,
       candidates: this.candidates,
+      profiles: this.getProfiles(),
       modules: this.modules.map((module) => ({
         id: module.id,
         slug: module.slug,

@@ -9,7 +9,7 @@
 
 import path from 'node:path';
 import { readFile, writeFile, copyFile } from 'node:fs/promises';
-import { ensureDir, exists, listDir, readJson, writeJsonAtomic } from '../util/fsx.js';
+import { ensureDir, exists, listDir, readJson, sha256File, statSafe, writeJsonAtomic } from '../util/fsx.js';
 import { slugify as baseSlugify } from '../util/slug.js';
 
 export const PROJECT_SCHEMA_VERSION = 1;
@@ -156,6 +156,74 @@ export class ProjectStore {
   async copyRaw(sourceFile, destinationFile) {
     await ensureDir(path.dirname(destinationFile));
     await copyFile(sourceFile, destinationFile);
+  }
+
+  /** List every project backup with metadata and hash. */
+  async listBackups() {
+    const entries = await listDir(this.backupDir);
+    /** @type {any[]} */
+    const backups = [];
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+      const filePath = path.join(this.backupDir, entry.name);
+      try {
+        const project = await readJson(filePath);
+        const stat = await statSafe(filePath);
+        backups.push({
+          kind: 'project',
+          id: project.id,
+          name: project.name,
+          updatedAt: project.updatedAt,
+          target: project.target,
+          path: filePath,
+          bytes: stat?.size ?? 0,
+          createdAt: stat ? new Date(stat.mtimeMs).toISOString() : null,
+          sha256: await sha256File(filePath),
+        });
+      } catch {
+        /* ignore corrupt backups, do not hide the rest */
+      }
+    }
+    backups.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    return backups;
+  }
+
+  /**
+   * Restore a project backup over the live project, backing up the current
+   * revision first.
+   * @param {string} backupPath
+   * @param {string} confirm Must equal the project id.
+   */
+  async restoreBackup(backupPath, confirm) {
+    const root = path.resolve(this.backupDir);
+    const source = path.resolve(backupPath);
+    if (source !== root && !source.startsWith(root + path.sep)) {
+      const error = new Error('Backup path is outside the project backup directory.');
+      // @ts-expect-error machine-readable
+      error.code = 'PATH_OUTSIDE_BACKUP';
+      throw error;
+    }
+
+    const project = await readJson(source);
+    if (project.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+      throw new Error(`Unsupported project schema ${project.schemaVersion}`);
+    }
+    if (project.id !== confirm) {
+      const error = new Error('Confirmation required: pass the project id as confirm.');
+      // @ts-expect-error machine-readable
+      error.code = 'CONFIRMATION_REQUIRED';
+      throw error;
+    }
+
+    const target = this.fileFor(project.id);
+    let previousBackup = null;
+    if (await exists(target)) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      previousBackup = path.join(this.backupDir, `${project.id}.${stamp}.json`);
+      await copyFile(target, previousBackup);
+    }
+    await writeJsonAtomic(target, project);
+    return { project, restoredFrom: source, previousBackup };
   }
 
   /** @param {string} filePath @param {string} contents */
